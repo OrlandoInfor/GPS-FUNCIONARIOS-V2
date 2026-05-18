@@ -5,3 +5,8 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm start
+    envVars:
+      - key: ADMIN_PASSWORD
+        value: GPS@Orlando2026
+      - key: PORT
+        value: "10000"
