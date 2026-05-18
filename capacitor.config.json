@@ -1,0 +1,9 @@
+{
+  "appId": "com.gpsfuncionarios.v2",
+  "appName": "GPS Funcionários v2",
+  "webDir": "public",
+  "server": {
+    "url": "https://gps-funcionarios-v2.onrender.com/funcionario",
+    "cleartext": true
+  }
+}

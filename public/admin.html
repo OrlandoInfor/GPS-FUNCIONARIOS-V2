@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin v2 - GPS Funcionários</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary: #2563eb;
+            --sidebar-bg: #0f172a;
+            --text-light: #f1f5f9;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --card-bg: #1e293b;
+            --border: #334155;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            display: flex;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            background: #0f172a;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: var(--sidebar-bg);
+            color: var(--text-light);
+            display: flex;
+            flex-direction: column;
+            z-index: 1001;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.4);
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: #020617;
+            border-bottom: 1px solid var(--border);
+        }
+        .sidebar-header h1 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sidebar-header .version {
+            font-size: 0.65rem;
+            background: var(--primary);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .sidebar-header p {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin: 4px 0 0 0;
+        }
+
+        .stats {
+            padding: 12px 16px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .stat-card {
+            background: var(--card-bg);
+            padding: 10px 8px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-card span {
+            display: block;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        .stat-card .stat-label {
+            font-size: 0.65rem;
+            font-weight: 400;
+            color: #94a3b8;
+        }
+        .stat-online span { color: var(--success); }
+        .stat-offline span { color: var(--warning); }
+        .stat-updates span { color: #60a5fa; }
+
+        .employee-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 12px;
+        }
+        .employee-list::-webkit-scrollbar { width: 4px; }
+        .employee-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+
+        .employee-item {
+            background: var(--card-bg);
+            margin-bottom: 6px;
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.15s;
+            border-left: 4px solid transparent;
+            position: relative;
+        }
+        .employee-item:hover { background: #334155; }
+        .employee-item.online { border-left-color: var(--success); }
+        .employee-item.offline { border-left-color: var(--warning); opacity: 0.7; }
+        .emp-name { font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 4px; }
+        .emp-meta { font-size: 0.7rem; color: #94a3b8; display: flex; gap: 8px; }
+        .emp-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+        .emp-status-dot.online { background: var(--success); }
+        .emp-status-dot.offline { background: var(--warning); }
+
+        #map { flex: 1; position: relative; }
+
+        .btn-delete {
+            background: none; border: none; color: var(--danger); cursor: pointer;
+            font-size: 0.7rem; padding: 2px 6px; opacity: 0.6; transition: opacity 0.15s;
+            flex-shrink: 0;
+        }
+        .btn-delete:hover { opacity: 1; }
+
+        .btn-clear-all {
+            width: calc(100% - 24px); margin: 0 12px 12px; padding: 8px;
+            background: transparent; border: 1px solid var(--danger); color: var(--danger);
+            border-radius: 8px; cursor: pointer; font-size: 0.75rem; font-weight: 600;
+            transition: all 0.15s; opacity: 0.5;
+        }
+        .btn-clear-all:hover { opacity: 1; background: rgba(239, 68, 68, 0.1); }
+
+        .employee-item-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+        }
+
+        #login-screen {
+            position: fixed; inset: 0; background: #0f172a; z-index: 9999;
+            display: flex; align-items: center; justify-content: center; color: white;
+        }
+        .login-card {
+            background: #1e293b;
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 320px;
+            border: 1px solid var(--border);
+        }
+        .login-card h2 { margin-bottom: 0.5rem; font-size: 1.2rem; }
+        .login-card .sub { color: #94a3b8; font-size: 0.8rem; margin-bottom: 1.5rem; }
+        #admin-password {
+            width: 100%; padding: 12px; border-radius: 8px;
+            border: 1px solid var(--border); background: #0f172a; color: white;
+            margin-bottom: 1rem; font-size: 0.95rem; outline: none;
+        }
+        #admin-password:focus { border-color: var(--primary); }
+        .login-btn {
+            width: 100%; padding: 12px; background: var(--success); color: white;
+            border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.9rem;
+        }
+        .login-btn:hover { background: #16a34a; }
+        .login-btn:disabled { opacity: 0.5; cursor: wait; }
+        #login-error { color: var(--danger); font-size: 0.8rem; margin-top: 8px; display: none; }
+    </style>
+</head>
+<body>
+    <div id="login-screen">
+        <div class="login-card">
+            <h2>Painel Admin</h2>
+            <p class="sub">GPS Funcionários v2</p>
+            <input type="password" id="admin-password" placeholder="Digite a senha" autofocus>
+            <button onclick="checkPassword()" class="login-btn" id="login-btn">Entrar</button>
+            <p id="login-error">Senha incorreta!</p>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>GPS Funcionários <span class="version">v2</span></h1>
+            <p>Monitoramento em Tempo Real — Manaus</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card stat-online">
+                <span id="online-count">0</span>
+                <div class="stat-label">Online</div>
+            </div>
+            <div class="stat-card stat-offline">
+                <span id="offline-count">0</span>
+                <div class="stat-label">Offline</div>
+            </div>
+            <div class="stat-card stat-updates">
+                <span id="update-count">0</span>
+                <div class="stat-label">Updates</div>
+            </div>
+        </div>
+
+        <div class="employee-list" id="employee-list">
+            <div style="text-align: center; padding: 20px; color: #64748b;">Aguardando...</div>
+        </div>
+        <button class="btn-clear-all" onclick="clearAllEmployees()">🗑 Limpar Todos</button>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const loginScreen = document.getElementById('login-screen');
+        const loginError = document.getElementById('login-error');
+        const adminPassInput = document.getElementById('admin-password');
+        const loginBtn = document.getElementById('login-btn');
+
+        adminPassInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') checkPassword();
+        });
+
+        async function checkPassword() {
+            const password = adminPassInput.value;
+            if (!password) return;
+
+            loginBtn.disabled = true;
+
+            try {
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    loginScreen.style.display = 'none';
+                    sessionStorage.setItem('adminAuth', 'true');
+                    fetchEmployeesFromAPI();
+                } else {
+                    loginError.style.display = 'block';
+                }
+            } catch (_) {
+                loginError.innerText = 'Erro de conexão';
+                loginError.style.display = 'block';
+            } finally {
+                loginBtn.disabled = false;
+            }
+        }
+
+        if (sessionStorage.getItem('adminAuth') === 'true') {
+            loginScreen.style.display = 'none';
+        }
+
+        const socket = io();
+        const employeeListDiv = document.getElementById('employee-list');
+        const onlineCountSpan = document.getElementById('online-count');
+        const offlineCountSpan = document.getElementById('offline-count');
+        const updateCountSpan = document.getElementById('update-count');
+
+        const map = L.map('map').setView([-3.119, -60.0217], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap',
+            maxZoom: 19
+        }).addTo(map);
+
+        const employees = {};
+        let totalUpdates = 0;
+        const OFFLINE_THRESHOLD_MS = 120000;
+
+        async function fetchEmployeesFromAPI() {
+            try {
+                const res = await fetch('/api/employees');
+                const list = await res.json();
+                list.forEach(emp => {
+                    if (emp.last_lat && emp.last_lng) {
+                        updateOrAddEmployee({
+                            lat: emp.last_lat,
+                            lng: emp.last_lng,
+                            employeeId: emp.name,
+                            deviceId: emp.id,
+                            timestamp: emp.last_seen || new Date().toISOString()
+                        }, false);
+                    }
+                });
+                updateEmployeeUI();
+            } catch (_) {}
+        }
+
+        setInterval(fetchEmployeesFromAPI, 5000);
+
+        function updateStats() {
+            let online = 0, offline = 0;
+            const now = Date.now();
+            Object.values(employees).forEach(emp => {
+                if (emp.isOnline || (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS)) {
+                    online++;
+                } else {
+                    offline++;
+                }
+            });
+            onlineCountSpan.innerText = online;
+            offlineCountSpan.innerText = offline;
+        }
+
+        function updateEmployeeUI() {
+            employeeListDiv.innerHTML = '';
+            const entries = Object.entries(employees);
+            if (entries.length === 0) {
+                employeeListDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;">Nenhum funcionário</div>';
+                return;
+            }
+
+            entries
+                .sort((a, b) => new Date(b[1].lastUpdate) - new Date(a[1].lastUpdate))
+                .forEach(([id, emp]) => {
+                    const now = Date.now();
+                    const isOnline = emp.isOnline || (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
+
+                    const item = document.createElement('div');
+                    item.className = 'employee-item ' + (isOnline ? 'online' : 'offline');
+                    item.innerHTML = `
+                        <div class="employee-item-header">
+                            <span class="emp-name">${emp.name || id}</span>
+                            <button class="btn-delete" data-id="${id}" onclick="event.stopPropagation();deleteEmployee('${id}')">✕</button>
+                        </div>
+                        <div class="emp-meta">
+                            <span><span class="emp-status-dot ${isOnline ? 'online' : 'offline'}"></span>${isOnline ? 'Online' : 'Offline'}</span>
+                            <span>${new Date(emp.lastUpdate).toLocaleTimeString()}</span>
+                            <span>${emp.history.length} pts</span>
+                        </div>
+                    `;
+                    item.onclick = () => map.setView(emp.lastPos, 16);
+                    employeeListDiv.appendChild(item);
+                });
+
+            updateStats();
+        }
+
+        socket.on('initial-locations', (locations) => {
+            Object.values(locations).forEach(data => updateOrAddEmployee(data, false));
+            updateEmployeeUI();
+        });
+
+        function updateOrAddEmployee(data, isLive = true) {
+            const { lat, lng, employeeId, deviceId, timestamp } = data;
+            const pos = [lat, lng];
+            const id = deviceId || employeeId;
+
+            if (!employees[id]) {
+                const marker = L.marker(pos).addTo(map).bindPopup(`<b>${employeeId}</b>`);
+                const path = L.polyline([pos], { color: '#2563eb', weight: 3, opacity: 0.7 }).addTo(map);
+                employees[id] = {
+                    marker, path, lastPos: pos, name: employeeId,
+                    lastUpdate: timestamp || new Date().toISOString(),
+                    history: [{ lat, lng, time: timestamp }],
+                    isOnline: true
+                };
+            } else {
+                const emp = employees[id];
+                emp.name = employeeId;
+                emp.marker.setLatLng(pos).getPopup().setContent(`<b>${employeeId}</b><br><small>${new Date(timestamp).toLocaleTimeString()}</small>`);
+
+                const last = emp.history[emp.history.length - 1];
+                if (!last || last.lat !== lat || last.lng !== lng) {
+                    emp.history.push({ lat, lng, time: timestamp });
+
+                    const cutoff = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+                    emp.history = emp.history.filter(p => p.time >= cutoff);
+
+                    const pathCoords = emp.history.map(p => [p.lat, p.lng]);
+                    emp.path.setLatLngs(pathCoords);
+                }
+                emp.lastPos = pos;
+                emp.lastUpdate = timestamp || new Date().toISOString();
+                emp.isOnline = true;
+            }
+
+            if (isLive) {
+                totalUpdates++;
+                updateCountSpan.innerText = totalUpdates;
+            }
+            updateEmployeeUI();
+        }
+
+        socket.on('location-broadcast', (data) => {
+            updateOrAddEmployee(data, true);
+        });
+
+        socket.on('employee-offline', ({ deviceId }) => {
+            if (employees[deviceId]) {
+                employees[deviceId].isOnline = false;
+                updateEmployeeUI();
+            }
+        });
+
+        async function deleteEmployee(id) {
+            if (!confirm('Excluir ' + (employees[id]?.name || id) + '?')) return;
+            try {
+                await fetch('/api/employees/' + encodeURIComponent(id), { method: 'DELETE' });
+                if (employees[id]) {
+                    map.removeLayer(employees[id].marker);
+                    map.removeLayer(employees[id].path);
+                    delete employees[id];
+                }
+                updateEmployeeUI();
+            } catch (_) {}
+        }
+
+        async function clearAllEmployees() {
+            if (!confirm('Excluir TODOS os funcionários?')) return;
+            try {
+                await fetch('/api/employees', { method: 'DELETE' });
+                Object.values(employees).forEach(emp => {
+                    map.removeLayer(emp.marker);
+                    map.removeLayer(emp.path);
+                });
+                for (const key in employees) delete employees[key];
+                totalUpdates = 0;
+                updateCountSpan.innerText = '0';
+                updateEmployeeUI();
+            } catch (_) {}
+        }
+
+        setInterval(updateStats, 30000);
+    </script>
+</body>
+</html>

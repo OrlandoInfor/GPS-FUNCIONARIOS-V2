@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: gps-funcionarios-v2
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
