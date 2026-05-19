@@ -190,7 +190,7 @@
         const errorToast = document.getElementById('error-toast');
 
         let employeeId = "";
-        let deviceId = localStorage.getItem('deviceId') || ('dev_' + crypto.randomUUID().substring(0, 12));
+        let deviceId = localStorage.getItem('deviceId') || ('dev_' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().substring(0, 12) : Math.random().toString(36).substr(2, 9)));
         localStorage.setItem('deviceId', deviceId);
 
         let consecutiveFails = 0;
@@ -216,24 +216,37 @@
         }
 
         btnPermitir.onclick = () => {
-            const name = nameInput.value.trim();
-            if (name.length < 3) {
-                alert("Por favor, digite seu nome completo.");
-                return;
+            try {
+                const name = nameInput.value.trim();
+                if (name.length < 3) {
+                    alert("Por favor, digite seu nome completo.");
+                    return;
+                }
+                employeeId = name;
+                localStorage.setItem('employeeName', name);
+                showTracking();
+            } catch(e) {
+                alert("Erro: " + e.message);
             }
-            employeeId = name;
-            localStorage.setItem('employeeName', name);
-            showTracking();
         };
 
         function showTracking() {
-            setupArea.classList.remove('active');
-            trackingArea.classList.add('active');
-            greeting.innerText = `Olá, ${employeeId}!`;
-            requestWakeLock();
-            sendLocation();
-            sendInterval = setInterval(sendLocation, 30000);
-            startCountdown();
+            try {
+                setupArea.classList.remove('active');
+                trackingArea.classList.add('active');
+                greeting.innerText = `Olá, ${employeeId}!`;
+                requestWakeLock();
+                if (!navigator.geolocation) {
+                    statusPill.className = 'status-pill status-paused';
+                    statusText.innerText = 'GPS não suportado neste navegador';
+                    return;
+                }
+                sendLocation();
+                sendInterval = setInterval(sendLocation, 30000);
+                startCountdown();
+            } catch(e) {
+                alert("Erro ao iniciar: " + e.message);
+            }
         }
 
         function startCountdown() {
