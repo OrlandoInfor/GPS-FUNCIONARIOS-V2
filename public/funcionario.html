@@ -155,11 +155,16 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        var socket = null;
+        var SOCKET_OK = false;
+        try {
+            if (typeof io !== 'undefined') {
+                socket = io();
+                SOCKET_OK = true;
+            }
+        } catch(e) {
+            console.warn('Socket.io indisponivel:', e.message);
         }
-
-        const socket = io();
 
         let wakeLock = null;
         async function requestWakeLock() {
@@ -301,7 +306,9 @@
                         timestamp: new Date().toISOString()
                     };
 
-                    socket.emit('update-location', data);
+                    if (socket && SOCKET_OK) {
+                        socket.emit('update-location', data);
+                    }
 
                     statusPill.className = 'status-pill status-active';
                     statusText.innerText = 'Rastreamento ativo';
