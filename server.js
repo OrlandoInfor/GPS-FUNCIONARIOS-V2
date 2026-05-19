@@ -83,11 +83,45 @@ app.get('/admin', (req, res) => {
 
 app.post('/api/auth', (req, res) => {
   const { password } = req.body;
-  if (password === ADMIN_PASSWORD) {
+  if (ADMIN_PASSWORDS.includes(password)) {
     res.json({ ok: true });
   } else {
     res.status(401).json({ ok: false, error: 'Senha incorreta' });
   }
+});
+
+app.get('/api/report/:id?', (req, res) => {
+  const { id } = req.params;
+  let rows;
+  if (id) {
+    rows = db.prepare(`
+      SELECT e.name, t.lat, t.lng, t.timestamp 
+      FROM trajectories t 
+      JOIN employees e ON t.employee_id = e.id 
+      WHERE t.employee_id = ? 
+      ORDER BY t.timestamp DESC
+    `).all(id);
+  } else {
+    rows = db.prepare(`
+      SELECT e.name, t.lat, t.lng, t.timestamp 
+      FROM trajectories t 
+      JOIN employees e ON t.employee_id = e.id 
+      ORDER BY t.timestamp DESC
+    `).all();
+  }
+
+  if (rows.length === 0) {
+    return res.status(404).send('Nenhum dado encontrado');
+  }
+
+  const csvRows = ['Nome,Latitude,Longitude,Data/Hora'];
+  rows.forEach(row => {
+    csvRows.push(`${row.name},${row.lat},${row.lng},${row.timestamp}`);
+  });
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename=relatorio_gps_${new Date().toISOString().split('T')[0]}.csv`);
+  res.send(csvRows.join('\n'));
 });
 
 app.get('/api/employees', (req, res) => {
@@ -148,35 +182,6 @@ io.on('connection', (socket) => {
 
     stmtUpsertEmployee.run(id, name, data.lat, data.lng);
     stmtInsertTrajectory.run(id, data.lat, data.lng, data.timestamp || new Date().toISOString());
-
-    onlineEmployees.set(socket.id, { deviceId: id, lastHeartbeat: Date.now() });
-
-    io.emit('location-broadcast', data);
-
-    if (Math.random() < 0.1) {
-      stmtCleanupTrajectories.run();
-    }
-  });
-
-  socket.on('disconnect', () => {
-    const info = onlineEmployees.get(socket.id);
-    if (info) {
-      setTimeout(() => {
-        if (![...onlineEmployees.values()].some(v => v.deviceId === info.deviceId)) {
-          io.emit('employee-offline', { deviceId: info.deviceId });
-        }
-      }, 60000);
-    }
-    onlineEmployees.delete(socket.id);
-    console.log('Desconectado:', socket.id);
-  });
-});
-
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`GPS Funcionários v2 rodando em http://localhost:${PORT}`);
-  console.log(`Admin: http://localhost:${PORT}/admin`);
-});
- new Date().toISOString());
 
     onlineEmployees.set(socket.id, { deviceId: id, lastHeartbeat: Date.now() });
 

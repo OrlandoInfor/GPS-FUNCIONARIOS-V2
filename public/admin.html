@@ -328,7 +328,10 @@
                     item.innerHTML = `
                         <div class="employee-item-header">
                             <span class="emp-name">${emp.name || id}</span>
-                            <button class="btn-delete" data-id="${id}" onclick="event.stopPropagation();deleteEmployee('${id}')">✕</button>
+                            <div style="display:flex; gap:4px;">
+                                <button class="btn-delete" style="color:var(--primary)" title="Relatório" onclick="event.stopPropagation();downloadReport('${id}')">📋</button>
+                                <button class="btn-delete" data-id="${id}" onclick="event.stopPropagation();deleteEmployee('${id}')">✕</button>
+                            </div>
                         </div>
                         <div class="emp-meta">
                             <span><span class="emp-status-dot ${isOnline ? 'online' : 'offline'}"></span>${isOnline ? 'Online' : 'Offline'}</span>
@@ -419,6 +422,14 @@
             }
         }
 
+        function downloadReport(id) {
+            window.location.href = `/api/report/${id}`;
+        }
+
+        function downloadFullReport() {
+            window.location.href = '/api/report';
+        }
+
         async function deleteEmployee(id) {
             if (!confirm('Excluir ' + (employees[id]?.name || id) + '?')) return;
             try {
@@ -445,13 +456,6 @@
                 updateCountSpan.innerText = '0';
                 updateEmployeeUI();
             } catch (_) {}
-        }
-
-        setInterval(updateStats, 30000);
-    </script>
-</body>
-</html>
-ch (_) {}
         }
 
         setInterval(updateStats, 30000);
