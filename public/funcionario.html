@@ -113,6 +113,7 @@
         </div>
 
         <div id="tracking-area">
+            <div class="logo">G</div>
             <h1 id="greeting">Olá!</h1>
             <p class="subtitle">Rastreamento ativo</p>
 
@@ -402,6 +403,24 @@
 
                     if (error.code !== 1) {
                         const delay = Math.min(retryDelay * Math.pow(1.5, consecutiveFails - 1), 60000);
+                        setTimeout(sendLocation, delay);
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+            );
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (capacitorWatchId && IS_CAPACITOR) {
+                try {
+                    window.Capacitor.Plugins.Geolocation.clearWatch({ id: capacitorWatchId });
+                } catch(e) {}
+            }
+        });
+    </script>
+</body>
+</html>
+w(1.5, consecutiveFails - 1), 60000);
                         setTimeout(sendLocation, delay);
                     }
                 },

@@ -7,6 +7,8 @@ const Database = require('better-sqlite3');
 
 const PORT = process.env.PORT || 3001;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'GPS@Orlando2026';
+// Suporte a múltiplos admins: ADMIN_PASSWORDS=senha1,senha2,senha3
+const ADMIN_PASSWORDS = process.env.ADMIN_PASSWORDS ? process.env.ADMIN_PASSWORDS.split(',') : [ADMIN_PASSWORD];
 const DB_PATH = process.env.DB_PATH || 'gps.db';
 
 const db = new Database(DB_PATH);
@@ -146,6 +148,35 @@ io.on('connection', (socket) => {
 
     stmtUpsertEmployee.run(id, name, data.lat, data.lng);
     stmtInsertTrajectory.run(id, data.lat, data.lng, data.timestamp || new Date().toISOString());
+
+    onlineEmployees.set(socket.id, { deviceId: id, lastHeartbeat: Date.now() });
+
+    io.emit('location-broadcast', data);
+
+    if (Math.random() < 0.1) {
+      stmtCleanupTrajectories.run();
+    }
+  });
+
+  socket.on('disconnect', () => {
+    const info = onlineEmployees.get(socket.id);
+    if (info) {
+      setTimeout(() => {
+        if (![...onlineEmployees.values()].some(v => v.deviceId === info.deviceId)) {
+          io.emit('employee-offline', { deviceId: info.deviceId });
+        }
+      }, 60000);
+    }
+    onlineEmployees.delete(socket.id);
+    console.log('Desconectado:', socket.id);
+  });
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`GPS Funcionários v2 rodando em http://localhost:${PORT}`);
+  console.log(`Admin: http://localhost:${PORT}/admin`);
+});
+ new Date().toISOString());
 
     onlineEmployees.set(socket.id, { deviceId: id, lastHeartbeat: Date.now() });
 

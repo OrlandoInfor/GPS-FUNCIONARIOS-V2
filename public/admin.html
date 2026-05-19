@@ -206,6 +206,7 @@
         <div class="employee-list" id="employee-list">
             <div style="text-align: center; padding: 20px; color: #64748b;">Aguardando...</div>
         </div>
+        <button class="btn-clear-all" style="margin-bottom: 6px; border-color: var(--primary); color: var(--primary);" onclick="downloadFullReport()">📊 Baixar Relatório Completo</button>
         <button class="btn-clear-all" onclick="clearAllEmployees()">🗑 Limpar Todos</button>
     </div>
 
@@ -444,6 +445,13 @@
                 updateCountSpan.innerText = '0';
                 updateEmployeeUI();
             } catch (_) {}
+        }
+
+        setInterval(updateStats, 30000);
+    </script>
+</body>
+</html>
+ch (_) {}
         }
 
         setInterval(updateStats, 30000);

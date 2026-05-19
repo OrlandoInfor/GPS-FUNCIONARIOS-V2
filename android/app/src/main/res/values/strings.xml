@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GPS Funcionários v2</string>
+    <string name="title_activity_main">GPS Funcionários v2</string>
+    <string name="package_name">com.gpsfuncionarios.v2</string>
+    <string name="custom_url_scheme">com.gpsfuncionarios.v2</string>
+</resources>
