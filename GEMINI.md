@@ -1,3 +1,16 @@
+# ⚠️ ATENÇÃO GEMINI — PROJETO SEPARADO
+
+Este projeto `gps-funcionarios-v2` pertence ao **OpenCode**.
+
+## Regra absoluta:
+- **Gemini/DeepSeek** → trabalhar APENAS em `~/rastreador-funcionarios/`
+- **OpenCode** → trabalhar APENAS em `~/gps-funcionarios-v2/`
+
+## Nunca editar este diretório se você for Gemini.
+Vá para: `/Users/orlandogarcia/rastreador-funcionarios/`
+
+---
+
 # Instruções do Projeto — GPS Funcionários
 
 Este arquivo contém as diretrizes de fluxo de trabalho para o projeto de rastreamento.
