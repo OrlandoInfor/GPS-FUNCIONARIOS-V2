@@ -205,6 +205,51 @@
         .login-btn:hover { background: #16a34a; }
         .login-btn:disabled { opacity: 0.5; cursor: wait; }
         #login-error { color: var(--danger); font-size: 0.8rem; margin-top: 8px; display: none; }
+
+        .map-layer-selector {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        .map-layer-selector button {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.15s;
+            white-space: nowrap;
+            text-align: left;
+            width: 100%;
+        }
+        .map-layer-selector button:hover {
+            background: #334155;
+            color: #e2e8f0;
+        }
+        .map-layer-selector button.active {
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+        }
+        .layer-icon {
+            font-size: 0.85rem;
+            width: 18px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -246,7 +291,15 @@
         <button class="btn-clear-all" onclick="clearAllEmployees()">🗑 Limpar Todos</button>
     </div>
 
-    <div id="map"></div>
+    <div id="map">
+        <div class="map-layer-selector" id="layer-selector">
+            <button data-layer="standard" class="active"><span class="layer-icon">🗺</span> Padrão</button>
+            <button data-layer="satellite"><span class="layer-icon">🛰</span> Satélite</button>
+            <button data-layer="terrain"><span class="layer-icon">⛰</span> Relevo</button>
+            <button data-layer="transport"><span class="layer-icon">🚦</span> Trânsito</button>
+            <button data-layer="dark"><span class="layer-icon">🌙</span> Escuro</button>
+        </div>
+    </div>
 
     <div class="modal-overlay" id="schedule-modal">
         <div class="modal">
@@ -325,10 +378,44 @@
         const updateCountSpan = document.getElementById('update-count');
 
         const map = L.map('map').setView([-3.119, -60.0217], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap',
-            maxZoom: 19
-        }).addTo(map);
+
+        const tileLayers = {
+            standard: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19
+            }),
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '© Esri',
+                maxZoom: 19
+            }),
+            terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenTopoMap, © OSM',
+                maxZoom: 17
+            }),
+            transport: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '© CARTO, © OSM',
+                maxZoom: 19
+            }),
+            dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© CARTO, © OSM',
+                maxZoom: 19
+            })
+        };
+
+        let currentLayer = 'standard';
+        tileLayers[currentLayer].addTo(map);
+
+        document.querySelectorAll('#layer-selector button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const layer = btn.dataset.layer;
+                if (layer === currentLayer) return;
+                map.removeLayer(tileLayers[currentLayer]);
+                tileLayers[layer].addTo(map);
+                document.querySelector('#layer-selector button.active').classList.remove('active');
+                btn.classList.add('active');
+                currentLayer = layer;
+            });
+        });
 
         const employees = {};
         let totalUpdates = 0;
