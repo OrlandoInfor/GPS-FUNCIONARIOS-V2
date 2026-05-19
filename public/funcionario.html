@@ -48,13 +48,14 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 2.5rem;
-            font-weight: 800;
             box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
             background-image: url('/logo.png');
             background-size: cover;
             background-position: center;
+        }
+        .logo svg {
+            width: 44px;
+            height: 44px;
         }
 
         h1 { font-size: 1.3rem; color: #0f172a; margin-bottom: 0.25rem; }
@@ -119,7 +120,7 @@
 <body>
     <div class="card">
         <div id="setup-area" class="active">
-            <div class="logo">G</div>
+            <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
             <h1>GPS Funcionários</h1>
             <p class="subtitle">Insira seu nome para iniciar o compartilhamento de localização.</p>
 
@@ -133,7 +134,7 @@
         </div>
 
         <div id="tracking-area">
-            <div class="logo">G</div>
+            <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
             <h1 id="greeting">Olá!</h1>
             <p class="subtitle">Rastreamento ativo</p>
 
