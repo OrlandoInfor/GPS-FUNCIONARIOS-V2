@@ -46,7 +46,7 @@ db.exec(`
 
 const stmtUpsertEmployee = db.prepare(`
   INSERT INTO employees (id, name, last_lat, last_lng, last_seen, created_at)
-  VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+  VALUES (?, ?, ?, ?, ?, datetime('now'))
   ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     last_lat = excluded.last_lat,
@@ -218,7 +218,7 @@ io.on('connection', (socket) => {
     const id = data.deviceId || data.employeeId;
     const name = data.employeeId || id;
 
-    stmtUpsertEmployee.run(id, name, data.lat, data.lng);
+    stmtUpsertEmployee.run(id, name, data.lat, data.lng, data.timestamp || new Date().toISOString());
     stmtInsertTrajectory.run(id, data.lat, data.lng, data.timestamp || new Date().toISOString());
 
     onlineEmployees.set(socket.id, { deviceId: id, lastHeartbeat: Date.now() });
