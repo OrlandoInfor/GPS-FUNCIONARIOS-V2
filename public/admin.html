@@ -544,7 +544,7 @@
             let online = 0, offline = 0;
             const now = Date.now();
             Object.values(employees).forEach(emp => {
-                if (emp.isOnline || (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS)) {
+                if (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS) {
                     online++;
                 } else {
                     offline++;
@@ -571,7 +571,7 @@
 
             const filtered = entries.filter(([id, emp]) => {
                 const now = Date.now();
-                const isOnline = emp.isOnline || (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
+                const isOnline = (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
                 if (filterMode === 'online') return isOnline;
                 if (filterMode === 'offline') return !isOnline;
                 return true;
@@ -588,7 +588,7 @@
                 .sort((a, b) => new Date(b[1].lastUpdate) - new Date(a[1].lastUpdate))
                 .forEach(([id, emp]) => {
                     const now = Date.now();
-                    const isOnline = emp.isOnline || (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
+                    const isOnline = (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
 
                     const item = document.createElement('div');
                     item.className = 'employee-item ' + (isOnline ? 'online' : 'offline');

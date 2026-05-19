@@ -291,6 +291,7 @@
         if (savedName) {
             employeeId = savedName;
             nameInput.value = savedName;
+            setTimeout(() => { showTracking(); }, 500);
         }
 
         function changeName() {
