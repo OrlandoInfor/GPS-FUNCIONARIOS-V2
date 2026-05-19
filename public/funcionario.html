@@ -223,16 +223,7 @@
             }
             employeeId = name;
             localStorage.setItem('employeeName', name);
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    () => showTracking(),
-                    (err) => alert("Erro ao acessar localização: " + err.message + "\nVerifique as permissões do navegador."),
-                    { enableHighAccuracy: true, timeout: 15000 }
-                );
-            } else {
-                alert("Seu navegador não suporta geolocalização.");
-            }
+            showTracking();
         };
 
         function showTracking() {
