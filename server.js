@@ -98,8 +98,8 @@ app.post('/api/auth', (req, res) => {
   }
 });
 
-app.get('/api/report/:id?', (req, res) => {
-  const { id } = req.params;
+function handleReport(req, res) {
+  const id = req.params.id;
   let rows;
   if (id) {
     rows = db.prepare(`
@@ -130,7 +130,10 @@ app.get('/api/report/:id?', (req, res) => {
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', `attachment; filename=relatorio_gps_${new Date().toISOString().split('T')[0]}.csv`);
   res.send(csvRows.join('\n'));
-});
+}
+
+app.get('/api/report', handleReport);
+app.get('/api/report/:id', handleReport);
 
 app.get('/api/employees', (req, res) => {
   res.json(stmtAllEmployees.all());
