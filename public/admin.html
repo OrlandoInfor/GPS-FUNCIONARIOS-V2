@@ -342,7 +342,7 @@
             <h1>GPS Funcionários <span class="version">v2</span></h1>
             <p>Monitoramento em Tempo Real — Manaus</p>
             <div class="header-actions">
-                <button class="btn-theme-toggle" id="theme-toggle" onclick="cycleTheme()">🌓 Tema: Sistema</button>
+                <button class="btn-theme-toggle" id="theme-toggle" onclick="cycleTheme()">🌙 Tema: Escuro</button>
             </div>
         </div>
 
@@ -369,13 +369,12 @@
     </div>
 
     <div id="map">
-        <button class="map-layer-toggle" id="layer-toggle" title="Camadas do mapa">🗺 Tipos de Mapas</button>
+        <button class="map-layer-toggle" id="layer-toggle" title="Camadas do mapa">🗺 Mapas</button>
         <div class="map-layer-selector" id="layer-selector">
             <button data-layer="standard" class="active"><span class="layer-icon">🗺</span> Padrão</button>
             <button data-layer="satellite"><span class="layer-icon">🛰</span> Satélite</button>
             <button data-layer="terrain"><span class="layer-icon">⛰</span> Relevo</button>
             <button data-layer="transport"><span class="layer-icon">🚦</span> Trânsito</button>
-            <button data-layer="dark"><span class="layer-icon">🌙</span> Escuro</button>
         </div>
     </div>
 
@@ -471,10 +470,6 @@
                 maxZoom: 17
             }),
             transport: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                attribution: '© CARTO, © OSM',
-                maxZoom: 19
-            }),
-            dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                 attribution: '© CARTO, © OSM',
                 maxZoom: 19
             })
@@ -757,9 +752,9 @@
 
         const THEME_KEY = 'admin-theme';
         const themeToggle = document.getElementById('theme-toggle');
-        const themes = ['auto', 'light', 'dark'];
-        const themeLabels = { auto: '🌓 Tema: Sistema', light: '☀️ Tema: Claro', dark: '🌙 Tema: Escuro' };
-        const themeAttrs = { auto: '', light: 'light', dark: 'dark' };
+        const themes = ['light', 'dark'];
+        const themeLabels = { light: '☀️ Tema: Claro', dark: '🌙 Tema: Escuro' };
+        const themeAttrs = { light: 'light', dark: 'dark' };
 
         function setTheme(theme) {
             const attr = themeAttrs[theme];
@@ -770,21 +765,10 @@
             }
         }
 
-        if (!window.matchMedia) {
-            themes.splice(themes.indexOf('auto'), 1);
-        }
-
-        let currentTheme = localStorage.getItem(THEME_KEY) || 'auto';
-        if (!themes.includes(currentTheme)) currentTheme = 'auto';
+        let currentTheme = localStorage.getItem(THEME_KEY) || 'dark';
+        if (!themes.includes(currentTheme)) currentTheme = 'dark';
         setTheme(currentTheme);
         themeToggle.innerText = themeLabels[currentTheme];
-
-        if (currentTheme === 'auto' && window.matchMedia) {
-            const mq = window.matchMedia('(prefers-color-scheme: dark)');
-            const applyAuto = () => setTheme(mq.matches ? 'dark' : 'light');
-            mq.addEventListener('change', applyAuto);
-            applyAuto();
-        }
 
         function cycleTheme() {
             const idx = themes.indexOf(currentTheme);
@@ -792,11 +776,6 @@
             localStorage.setItem(THEME_KEY, currentTheme);
             setTheme(currentTheme);
             themeToggle.innerText = themeLabels[currentTheme];
-
-            if (currentTheme === 'auto' && window.matchMedia) {
-                const mq = window.matchMedia('(prefers-color-scheme: dark)');
-                setTheme(mq.matches ? 'dark' : 'light');
-            }
         }
     </script>
 </body>
