@@ -202,7 +202,7 @@
         const savedName = localStorage.getItem('employeeName');
         if (savedName) {
             employeeId = savedName;
-            showTracking();
+            nameInput.value = savedName;
         }
 
         function changeName() {
