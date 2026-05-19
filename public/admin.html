@@ -454,7 +454,11 @@
             requestNotificationPermission();
         }
 
-        const socket = io();
+        const socket = io({ reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000, reconnectionDelayMax: 10000 });
+
+        socket.on('connect', () => {
+            fetchEmployeesFromAPI();
+        });
         const employeeListDiv = document.getElementById('employee-list');
         const onlineCountSpan = document.getElementById('online-count');
         const offlineCountSpan = document.getElementById('offline-count');

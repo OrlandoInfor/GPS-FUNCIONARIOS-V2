@@ -180,7 +180,12 @@
         var SOCKET_OK = false;
         try {
             if (typeof io !== 'undefined') {
-                socket = io();
+                socket = io({
+                    reconnection: true,
+                    reconnectionAttempts: Infinity,
+                    reconnectionDelay: 1000,
+                    reconnectionDelayMax: 10000
+                });
                 SOCKET_OK = true;
             }
         } catch(e) {
@@ -226,6 +231,7 @@
         let secondsToNext = 30;
         let capacitorWatchId = null;
         let scheduleConfig = { start_hour: 8, end_hour: 17, days: [1,2,3,4,5] };
+        let lastSentData = null;
 
         const IS_CAPACITOR = typeof window.Capacitor !== 'undefined'
             && window.Capacitor.Plugins
@@ -247,6 +253,29 @@
                         end_hour: config.end_hour || 17,
                         days: (config.days || '1,2,3,4,5').split(',').map(Number)
                     };
+                }
+            });
+
+            socket.on('connect', () => {
+                console.log('Socket reconectado');
+                if (trackingArea.classList.contains('active')) {
+                    statusPill.className = 'status-pill status-active';
+                    statusText.innerText = 'Rastreamento ativo';
+                    if (lastSentData) {
+                        socket.emit('update-location', lastSentData);
+                    }
+                    if (IS_CAPACITOR && capacitorWatchId) {
+                    } else if (!IS_CAPACITOR && sendInterval) {
+                        forceSend();
+                    }
+                }
+            });
+
+            socket.on('disconnect', (reason) => {
+                console.log('Socket desconectado:', reason);
+                if (trackingArea.classList.contains('active')) {
+                    statusPill.className = 'status-pill status-paused';
+                    statusText.innerText = 'Reconectando ao servidor...';
                 }
             });
         }
@@ -330,6 +359,8 @@
                         timestamp: new Date(position.timestamp || Date.now()).toISOString()
                     };
 
+                    lastSentData = data;
+
                     if (socket && SOCKET_OK) {
                         socket.emit('update-location', data);
                     }
@@ -409,6 +440,8 @@
                         deviceId: deviceId,
                         timestamp: new Date().toISOString()
                     };
+
+                    lastSentData = data;
 
                     if (socket && SOCKET_OK) {
                         socket.emit('update-location', data);
