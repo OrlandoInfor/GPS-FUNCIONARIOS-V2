@@ -225,10 +225,31 @@
         let countdownInterval = null;
         let secondsToNext = 30;
         let capacitorWatchId = null;
+        let scheduleConfig = { start_hour: 8, end_hour: 17, days: [1,2,3,4,5] };
 
         const IS_CAPACITOR = typeof window.Capacitor !== 'undefined'
             && window.Capacitor.Plugins
             && window.Capacitor.Plugins.Geolocation;
+
+        if (socket && SOCKET_OK) {
+            socket.on('schedule-config', (config) => {
+                scheduleConfig = {
+                    start_hour: config.start_hour || 8,
+                    end_hour: config.end_hour || 17,
+                    days: (config.days || '1,2,3,4,5').split(',').map(Number)
+                };
+            });
+
+            socket.on('schedule-update', (config) => {
+                if (config.deviceId === deviceId) {
+                    scheduleConfig = {
+                        start_hour: config.start_hour || 8,
+                        end_hour: config.end_hour || 17,
+                        days: (config.days || '1,2,3,4,5').split(',').map(Number)
+                    };
+                }
+            });
+        }
 
         const savedName = localStorage.getItem('employeeName');
         if (savedName) {
@@ -355,7 +376,7 @@
             const now = new Date();
             const day = now.getDay();
             const hour = now.getHours();
-            return (day >= 1 && day <= 5) && (hour >= 8 && hour < 17);
+            return scheduleConfig.days.includes(day) && (hour >= scheduleConfig.start_hour && hour < scheduleConfig.end_hour);
         }
 
         function forceSend() {
@@ -367,7 +388,7 @@
         function sendLocation(bypassTimeCheck = false) {
             if (!bypassTimeCheck && !isWorkingHours()) {
                 statusPill.className = 'status-pill status-off';
-                statusText.innerText = 'Fora do horário de trabalho';
+                statusText.innerText = `Fora do horário (${scheduleConfig.start_hour}h-${scheduleConfig.end_h}h)`;
                 document.getElementById('last-send').innerText = '--:--:--';
                 errorToast.style.display = 'none';
                 return;

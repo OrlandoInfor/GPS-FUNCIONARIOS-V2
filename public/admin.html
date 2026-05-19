@@ -137,9 +137,45 @@
         }
         .btn-clear-all:hover { opacity: 1; background: rgba(239, 68, 68, 0.1); }
 
+        .btn-schedule {
+            background: none; border: none; color: #94a3b8; cursor: pointer;
+            font-size: 0.8rem; padding: 2px 6px; opacity: 0.5; transition: opacity 0.15s;
+            flex-shrink: 0;
+        }
+        .btn-schedule:hover { opacity: 1; color: #60a5fa; }
+
         .employee-item-header {
             display: flex; justify-content: space-between; align-items: flex-start;
         }
+        .employee-item-header .btn-group {
+            display: flex; gap: 2px; flex-shrink: 0;
+        }
+
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9998;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #1e293b; border-radius: 16px; padding: 2rem; width: 380px;
+            max-width: 90vw; border: 1px solid var(--border); color: var(--text-light);
+        }
+        .modal h3 { margin: 0 0 1rem; font-size: 1rem; color: #60a5fa; }
+        .modal label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px; margin-top: 12px; }
+        .modal input[type="number"] {
+            width: 70px; padding: 8px; border-radius: 6px; border: 1px solid var(--border);
+            background: #0f172a; color: white; font-size: 0.9rem; text-align: center;
+        }
+        .modal .day-toggles { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+        .modal .day-btn {
+            width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--border);
+            background: transparent; color: #94a3b8; cursor: pointer; font-size: 0.75rem;
+            font-weight: 600; transition: all 0.15s;
+        }
+        .modal .day-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
+        .modal .modal-actions { display: flex; gap: 8px; margin-top: 1.5rem; }
+        .modal .btn-save { flex: 1; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .modal .btn-cancel { flex: 1; padding: 10px; background: transparent; color: #94a3b8; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
 
         #login-screen {
             position: fixed; inset: 0; background: #0f172a; z-index: 9999;
@@ -211,6 +247,30 @@
     </div>
 
     <div id="map"></div>
+
+    <div class="modal-overlay" id="schedule-modal">
+        <div class="modal">
+            <h3>⚙ Horário — <span id="schedule-emp-name"></span></h3>
+            <label>Início (hora)</label>
+            <input type="number" id="sched-start" min="0" max="23" value="8">
+            <label>Término (hora)</label>
+            <input type="number" id="sched-end" min="0" max="23" value="17">
+            <label>Dias da semana</label>
+            <div class="day-toggles" id="day-toggles">
+                <button class="day-btn" data-day="1" onclick="toggleDay(this)">Seg</button>
+                <button class="day-btn" data-day="2" onclick="toggleDay(this)">Ter</button>
+                <button class="day-btn" data-day="3" onclick="toggleDay(this)">Qua</button>
+                <button class="day-btn" data-day="4" onclick="toggleDay(this)">Qui</button>
+                <button class="day-btn" data-day="5" onclick="toggleDay(this)">Sex</button>
+                <button class="day-btn" data-day="6" onclick="toggleDay(this)">Sáb</button>
+                <button class="day-btn" data-day="0" onclick="toggleDay(this)">Dom</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-save" onclick="saveSchedule()">Salvar</button>
+                <button class="btn-cancel" onclick="closeScheduleModal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="/socket.io/socket.io.js"></script>
@@ -328,10 +388,11 @@
                     item.innerHTML = `
                         <div class="employee-item-header">
                             <span class="emp-name">${emp.name || id}</span>
-                            <div style="display:flex; gap:4px;">
-                                <button class="btn-delete" style="color:var(--primary)" title="Relatório" onclick="event.stopPropagation();downloadReport('${id}')">📋</button>
+                            <div class="btn-group">
+                                <button class="btn-schedule" data-id="${id}" onclick="event.stopPropagation();openScheduleModal('${id}')">⚙</button>
                                 <button class="btn-delete" data-id="${id}" onclick="event.stopPropagation();deleteEmployee('${id}')">✕</button>
                             </div>
+                        </div>
                         </div>
                         <div class="emp-meta">
                             <span><span class="emp-status-dot ${isOnline ? 'online' : 'offline'}"></span>${isOnline ? 'Online' : 'Offline'}</span>
@@ -459,6 +520,60 @@
         }
 
         setInterval(updateStats, 30000);
+
+        let scheduleDeviceId = null;
+
+        async function openScheduleModal(deviceId) {
+            scheduleDeviceId = deviceId;
+            const emp = employees[deviceId];
+            document.getElementById('schedule-emp-name').innerText = emp ? emp.name : deviceId;
+
+            try {
+                const res = await fetch('/api/schedule/' + encodeURIComponent(deviceId));
+                const sched = await res.json();
+                document.getElementById('sched-start').value = sched.start_hour || 8;
+                document.getElementById('sched-end').value = sched.end_hour || 17;
+                const days = (sched.days || '1,2,3,4,5').split(',').map(Number);
+                document.querySelectorAll('#day-toggles .day-btn').forEach(btn => {
+                    btn.classList.toggle('active', days.includes(Number(btn.dataset.day)));
+                });
+            } catch(_) {}
+
+            document.getElementById('schedule-modal').classList.add('active');
+        }
+
+        function closeScheduleModal() {
+            document.getElementById('schedule-modal').classList.remove('active');
+            scheduleDeviceId = null;
+        }
+
+        function toggleDay(btn) {
+            btn.classList.toggle('active');
+        }
+
+        async function saveSchedule() {
+            if (!scheduleDeviceId) return;
+            const start_hour = parseInt(document.getElementById('sched-start').value) || 8;
+            const end_hour = parseInt(document.getElementById('sched-end').value) || 17;
+            const days = [];
+            document.querySelectorAll('#day-toggles .day-btn.active').forEach(btn => {
+                days.push(btn.dataset.day);
+            });
+
+            try {
+                await fetch('/api/schedule/' + encodeURIComponent(scheduleDeviceId), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ start_hour, end_hour, days: days.join(',') || '1,2,3,4,5' })
+                });
+            } catch(_) {}
+
+            closeScheduleModal();
+        }
+
+        document.getElementById('schedule-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeScheduleModal();
+        });
     </script>
 </body>
 </html>

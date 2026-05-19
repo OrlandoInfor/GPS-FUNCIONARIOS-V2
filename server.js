@@ -34,6 +34,14 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_trajectories_employee_time
     ON trajectories(employee_id, timestamp);
+
+  CREATE TABLE IF NOT EXISTS schedules (
+    employee_id TEXT PRIMARY KEY,
+    start_hour INTEGER NOT NULL DEFAULT 8,
+    end_hour INTEGER NOT NULL DEFAULT 17,
+    days TEXT NOT NULL DEFAULT '1,2,3,4,5',
+    FOREIGN KEY (employee_id) REFERENCES employees(id)
+  );
 `);
 
 const stmtUpsertEmployee = db.prepare(`
@@ -142,6 +150,33 @@ app.delete('/api/employees/:id', (req, res) => {
 app.delete('/api/employees', (req, res) => {
   db.prepare('DELETE FROM trajectories').run();
   db.prepare('DELETE FROM employees').run();
+  db.prepare('DELETE FROM schedules').run();
+  res.json({ ok: true });
+});
+
+const stmtGetSchedule = db.prepare('SELECT * FROM schedules WHERE employee_id = ?');
+const stmtUpsertSchedule = db.prepare(`
+  INSERT INTO schedules (employee_id, start_hour, end_hour, days)
+  VALUES (?, ?, ?, ?)
+  ON CONFLICT(employee_id) DO UPDATE SET
+    start_hour = excluded.start_hour,
+    end_hour = excluded.end_hour,
+    days = excluded.days
+`);
+
+app.get('/api/schedule/:id', (req, res) => {
+  const row = stmtGetSchedule.get(req.params.id);
+  if (row) {
+    res.json(row);
+  } else {
+    res.json({ start_hour: 8, end_hour: 17, days: '1,2,3,4,5' });
+  }
+});
+
+app.post('/api/schedule/:id', (req, res) => {
+  const { start_hour, end_hour, days } = req.body;
+  stmtUpsertSchedule.run(req.params.id, start_hour || 8, end_hour || 17, days || '1,2,3,4,5');
+  io.emit('schedule-update', { deviceId: req.params.id, start_hour, end_hour, days });
   res.json({ ok: true });
 });
 
@@ -184,6 +219,15 @@ io.on('connection', (socket) => {
     stmtInsertTrajectory.run(id, data.lat, data.lng, data.timestamp || new Date().toISOString());
 
     onlineEmployees.set(socket.id, { deviceId: id, lastHeartbeat: Date.now() });
+
+    const schedule = stmtGetSchedule.get(id);
+    if (schedule) {
+      socket.emit('schedule-config', {
+        start_hour: schedule.start_hour,
+        end_hour: schedule.end_hour,
+        days: schedule.days
+      });
+    }
 
     io.emit('location-broadcast', data);
 
