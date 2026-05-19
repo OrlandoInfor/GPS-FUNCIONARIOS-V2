@@ -3,13 +3,14 @@
   "short_name": "GPS Func v2",
   "start_url": "/funcionario",
   "display": "standalone",
-  "background_color": "#f1f5f9",
+  "background_color": "#2563eb",
   "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/854/854878.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

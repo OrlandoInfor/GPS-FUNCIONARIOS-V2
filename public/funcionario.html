@@ -203,6 +203,11 @@
         let sendInterval = null;
         let countdownInterval = null;
         let secondsToNext = 30;
+        let capacitorWatchId = null;
+
+        const IS_CAPACITOR = typeof window.Capacitor !== 'undefined'
+            && window.Capacitor.Plugins
+            && window.Capacitor.Plugins.Geolocation;
 
         const savedName = localStorage.getItem('employeeName');
         if (savedName) {
@@ -241,16 +246,73 @@
                 trackingArea.classList.add('active');
                 greeting.innerText = `Olá, ${employeeId}!`;
                 requestWakeLock();
-                if (!navigator.geolocation) {
+
+                if (IS_CAPACITOR) {
+                    startCapacitorTracking();
+                } else if (navigator.geolocation) {
+                    sendLocation();
+                    sendInterval = setInterval(sendLocation, 30000);
+                } else {
                     statusPill.className = 'status-pill status-paused';
                     statusText.innerText = 'GPS não suportado neste navegador';
                     return;
                 }
-                sendLocation();
-                sendInterval = setInterval(sendLocation, 30000);
                 startCountdown();
             } catch(e) {
                 alert("Erro ao iniciar: " + e.message);
+            }
+        }
+
+        async function startCapacitorTracking() {
+            try {
+                const Geolocation = window.Capacitor.Plugins.Geolocation;
+                capacitorWatchId = await Geolocation.watchPosition({
+                    enableHighAccuracy: true,
+                    timeout: 20000
+                }, (position, err) => {
+                    if (err) {
+                        consecutiveFails++;
+                        document.getElementById('fail-count').innerText = consecutiveFails;
+                        statusPill.className = 'status-pill status-paused';
+                        statusText.innerText = 'Erro no GPS nativo';
+                        return;
+                    }
+                    if (!position || !position.coords) return;
+
+                    consecutiveFails = 0;
+                    const data = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        employeeId: employeeId,
+                        deviceId: deviceId,
+                        timestamp: new Date(position.timestamp || Date.now()).toISOString()
+                    };
+
+                    if (socket && SOCKET_OK) {
+                        socket.emit('update-location', data);
+                    }
+
+                    statusPill.className = 'status-pill status-active';
+                    statusText.innerText = '● Rastreamento (nativo)';
+                    document.getElementById('last-send').innerText = new Date().toLocaleTimeString();
+                    document.getElementById('accuracy-info').innerText = Math.round(position.coords.accuracy || 0) + 'm';
+                    document.getElementById('coords-info').innerText =
+                        position.coords.latitude.toFixed(5) + ', ' + position.coords.longitude.toFixed(5);
+                    document.getElementById('fail-count').innerText = '0';
+                    errorToast.style.display = 'none';
+                    secondsToNext = 30;
+                    updateCountdown();
+                });
+                statusText.innerText = '● Rastreamento nativo ativo';
+                statusPill.className = 'status-pill status-active';
+            } catch(e) {
+                statusPill.className = 'status-pill status-paused';
+                statusText.innerText = 'Erro ao iniciar GPS nativo';
+                console.warn('Capacitor GPS error:', e);
+                if (navigator.geolocation) {
+                    sendLocation();
+                    sendInterval = setInterval(sendLocation, 30000);
+                }
             }
         }
 
@@ -346,6 +408,14 @@
                 { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
             );
         }
+
+        window.addEventListener('beforeunload', () => {
+            if (capacitorWatchId && IS_CAPACITOR) {
+                try {
+                    window.Capacitor.Plugins.Geolocation.clearWatch({ id: capacitorWatchId });
+                } catch(e) {}
+            }
+        });
     </script>
 </body>
 </html>

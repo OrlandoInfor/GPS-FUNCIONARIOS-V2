@@ -7,6 +7,8 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
+    "@capacitor/geolocation": "^8.2.0",
+    "@capacitor/local-notifications": "^8.2.0",
     "better-sqlite3": "^11.7.0",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",

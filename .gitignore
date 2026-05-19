@@ -3,3 +3,8 @@ gps.db
 gps.db-shm
 gps.db-wal
 .env
+android/app/build/
+android/.gradle/
+android/build/
+android/capacitor-cordova-android-plugins/build/
+android/captures/
