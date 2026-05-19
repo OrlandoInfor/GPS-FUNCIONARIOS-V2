@@ -239,6 +239,7 @@
                 if (data.ok) {
                     loginScreen.style.display = 'none';
                     sessionStorage.setItem('adminAuth', 'true');
+                    requestNotificationPermission();
                     fetchEmployeesFromAPI();
                 } else {
                     loginError.style.display = 'block';
@@ -253,6 +254,7 @@
 
         if (sessionStorage.getItem('adminAuth') === 'true') {
             loginScreen.style.display = 'none';
+            requestNotificationPermission();
         }
 
         const socket = io();
@@ -392,10 +394,29 @@
 
         socket.on('employee-offline', ({ deviceId }) => {
             if (employees[deviceId]) {
+                const name = employees[deviceId].name || deviceId;
                 employees[deviceId].isOnline = false;
                 updateEmployeeUI();
+                notifyOffline(name);
             }
         });
+
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        }
+
+        function notifyOffline(name) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('Funcionário Offline', {
+                    body: `${name} ficou offline`,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/854/854878.png',
+                    tag: 'offline-' + name,
+                    requireInteraction: true
+                });
+            }
+        }
 
         async function deleteEmployee(id) {
             if (!confirm('Excluir ' + (employees[id]?.name || id) + '?')) return;
