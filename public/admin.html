@@ -127,7 +127,13 @@
             padding: 10px 8px;
             border-radius: 8px;
             text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: 2px solid transparent;
+            user-select: none;
         }
+        .stat-card:hover { border-color: var(--border); background: var(--surface-hover); }
+        .stat-card.active { border-color: var(--primary); }
         .stat-card span {
             display: block;
             font-size: 1.3rem;
@@ -347,15 +353,15 @@
         </div>
 
         <div class="stats">
-            <div class="stat-card stat-online">
+            <div class="stat-card stat-online active" id="stat-online" onclick="setFilter('online')">
                 <span id="online-count">0</span>
                 <div class="stat-label">Online</div>
             </div>
-            <div class="stat-card stat-offline">
+            <div class="stat-card stat-offline" id="stat-offline" onclick="setFilter('offline')">
                 <span id="offline-count">0</span>
                 <div class="stat-label">Offline</div>
             </div>
-            <div class="stat-card stat-updates">
+            <div class="stat-card stat-updates" id="stat-all" onclick="setFilter('all')">
                 <span id="update-count">0</span>
                 <div class="stat-label">Updates</div>
             </div>
@@ -544,15 +550,37 @@
             offlineCountSpan.innerText = offline;
         }
 
+        let filterMode = 'all';
+
+        function setFilter(mode) {
+            filterMode = mode;
+            document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+            if (mode === 'online') document.getElementById('stat-online').classList.add('active');
+            else if (mode === 'offline') document.getElementById('stat-offline').classList.add('active');
+            else document.getElementById('stat-all').classList.add('active');
+            updateEmployeeUI();
+        }
+
         function updateEmployeeUI() {
             employeeListDiv.innerHTML = '';
             const entries = Object.entries(employees);
-            if (entries.length === 0) {
-                employeeListDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;">Nenhum funcionário</div>';
+
+            const filtered = entries.filter(([id, emp]) => {
+                const now = Date.now();
+                const isOnline = emp.isOnline || (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
+                if (filterMode === 'online') return isOnline;
+                if (filterMode === 'offline') return !isOnline;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                const label = filterMode === 'online' ? 'Nenhum online' : filterMode === 'offline' ? 'Nenhum offline' : 'Nenhum funcionário';
+                employeeListDiv.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-dim);">${label}</div>`;
+                updateStats();
                 return;
             }
 
-            entries
+            filtered
                 .sort((a, b) => new Date(b[1].lastUpdate) - new Date(a[1].lastUpdate))
                 .forEach(([id, emp]) => {
                     const now = Date.now();
