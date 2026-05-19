@@ -206,12 +206,34 @@
         .login-btn:disabled { opacity: 0.5; cursor: wait; }
         #login-error { color: var(--danger); font-size: 0.8rem; margin-top: 8px; display: none; }
 
-        .map-layer-selector {
+        .map-layer-toggle {
             position: absolute;
             top: 10px;
             right: 10px;
             z-index: 1000;
+            width: 40px;
+            height: 40px;
+            background: #1e293b;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
             display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            transition: all 0.15s;
+        }
+        .map-layer-toggle:hover { background: #334155; border-color: var(--primary); }
+        .map-layer-toggle.open { border-color: var(--primary); background: var(--primary); }
+
+        .map-layer-selector {
+            position: absolute;
+            top: 10px;
+            right: 56px;
+            z-index: 1000;
+            display: none;
             flex-direction: column;
             gap: 2px;
             background: #1e293b;
@@ -219,6 +241,7 @@
             padding: 4px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
+        .map-layer-selector.open { display: flex; }
         .map-layer-selector button {
             display: flex;
             align-items: center;
@@ -292,6 +315,7 @@
     </div>
 
     <div id="map">
+        <button class="map-layer-toggle" id="layer-toggle" title="Camadas do mapa">🗺</button>
         <div class="map-layer-selector" id="layer-selector">
             <button data-layer="standard" class="active"><span class="layer-icon">🗺</span> Padrão</button>
             <button data-layer="satellite"><span class="layer-icon">🛰</span> Satélite</button>
@@ -404,6 +428,21 @@
 
         let currentLayer = 'standard';
         tileLayers[currentLayer].addTo(map);
+
+        const layerToggle = document.getElementById('layer-toggle');
+        const layerSelector = document.getElementById('layer-selector');
+
+        layerToggle.addEventListener('click', () => {
+            const isOpen = layerSelector.classList.toggle('open');
+            layerToggle.classList.toggle('open', isOpen);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!layerSelector.contains(e.target) && e.target !== layerToggle) {
+                layerSelector.classList.remove('open');
+                layerToggle.classList.remove('open');
+            }
+        });
 
         document.querySelectorAll('#layer-selector button').forEach(btn => {
             btn.addEventListener('click', () => {
