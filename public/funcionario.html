@@ -208,7 +208,11 @@
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 await requestWakeLock();
-                sendLocation();
+                if (!IS_CAPACITOR && trackingArea.classList.contains('active')) {
+                    if (isWorkingHours() && browserWatchId === null) {
+                        startBrowserTracking();
+                    }
+                }
             }
         });
 
@@ -227,12 +231,15 @@
 
         let consecutiveFails = 0;
         let retryDelay = 5000;
-        let sendInterval = null;
         let countdownInterval = null;
         let secondsToNext = 30;
         let capacitorWatchId = null;
+        let browserWatchId = null;
+        let watchdogInterval = null;
+        let lastPositionTime = 0;
         let scheduleConfig = { start_hour: 8, end_hour: 17, days: [1,2,3,4,5] };
         let lastSentData = null;
+        let trackingPausedBySchedule = false;
 
         const IS_CAPACITOR = typeof window.Capacitor !== 'undefined'
             && window.Capacitor.Plugins
@@ -265,9 +272,8 @@
                     if (lastSentData) {
                         socket.emit('update-location', lastSentData);
                     }
-                    if (IS_CAPACITOR && capacitorWatchId) {
-                    } else if (!IS_CAPACITOR && sendInterval) {
-                        forceSend();
+                    if (!IS_CAPACITOR && browserWatchId === null && isWorkingHours()) {
+                        startBrowserTracking();
                     }
                 }
             });
@@ -322,14 +328,14 @@
                 if (IS_CAPACITOR) {
                     startCapacitorTracking();
                 } else if (navigator.geolocation) {
-                    sendLocation();
-                    sendInterval = setInterval(sendLocation, 30000);
+                    startBrowserTracking();
                 } else {
                     statusPill.className = 'status-pill status-paused';
                     statusText.innerText = 'GPS não suportado neste navegador';
                     return;
                 }
                 startCountdown();
+                startWatchdog();
             } catch(e) {
                 alert("Erro ao iniciar: " + e.message);
             }
@@ -384,8 +390,7 @@
                 statusText.innerText = 'Erro ao iniciar GPS nativo';
                 console.warn('Capacitor GPS error:', e);
                 if (navigator.geolocation) {
-                    sendLocation();
-                    sendInterval = setInterval(sendLocation, 30000);
+                    startBrowserTracking();
                 }
             }
         }
@@ -414,11 +419,24 @@
         function forceSend() {
             secondsToNext = 30;
             updateCountdown();
-            sendLocation(true);
+            if (browserWatchId !== null) {
+                stopBrowserTracking();
+                startBrowserTracking();
+            }
         }
 
-        function sendLocation(bypassTimeCheck = false) {
-            if (!bypassTimeCheck && !isWorkingHours()) {
+        function stopBrowserTracking() {
+            if (browserWatchId !== null) {
+                navigator.geolocation.clearWatch(browserWatchId);
+                browserWatchId = null;
+            }
+        }
+
+        function startBrowserTracking() {
+            stopBrowserTracking();
+
+            if (!isWorkingHours()) {
+                trackingPausedBySchedule = true;
                 statusPill.className = 'status-pill status-off';
                 statusText.innerText = `Fora do horário (${scheduleConfig.start_hour}h-${scheduleConfig.end_h}h)`;
                 document.getElementById('last-send').innerText = '--:--:--';
@@ -426,20 +444,21 @@
                 return;
             }
 
+            trackingPausedBySchedule = false;
             statusPill.className = 'status-pill status-searching';
             statusText.innerText = 'Buscando sinal GPS...';
 
-            navigator.geolocation.getCurrentPosition(
+            browserWatchId = navigator.geolocation.watchPosition(
                 (position) => {
                     consecutiveFails = 0;
-                    retryDelay = 5000;
+                    lastPositionTime = Date.now();
 
                     const data = {
                         lat: position.coords.latitude,
                         lng: position.coords.longitude,
                         employeeId: employeeId,
                         deviceId: deviceId,
-                        timestamp: new Date().toISOString()
+                        timestamp: new Date(position.timestamp || Date.now()).toISOString()
                     };
 
                     lastSentData = data;
@@ -451,7 +470,7 @@
                     statusPill.className = 'status-pill status-active';
                     statusText.innerText = 'Rastreamento ativo';
                     document.getElementById('last-send').innerText = new Date().toLocaleTimeString();
-                    document.getElementById('accuracy-info').innerText = Math.round(position.coords.accuracy) + 'm';
+                    document.getElementById('accuracy-info').innerText = Math.round(position.coords.accuracy || 0) + 'm';
                     document.getElementById('coords-info').innerText =
                         position.coords.latitude.toFixed(5) + ', ' + position.coords.longitude.toFixed(5);
                     document.getElementById('fail-count').innerText = '0';
@@ -462,7 +481,6 @@
                 (error) => {
                     consecutiveFails++;
                     document.getElementById('fail-count').innerText = consecutiveFails;
-
                     statusPill.className = 'status-pill status-paused';
 
                     let msg;
@@ -475,14 +493,45 @@
                     statusText.innerText = msg;
                     errorToast.innerText = msg + ' (tentativa ' + consecutiveFails + ')';
                     errorToast.style.display = 'block';
-
-                    if (error.code !== 1) {
-                        const delay = Math.min(retryDelay * Math.pow(1.5, consecutiveFails - 1), 60000);
-                        setTimeout(sendLocation, delay);
-                    }
                 },
-                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
             );
+
+            lastPositionTime = Date.now();
+        }
+
+        function startWatchdog() {
+            if (watchdogInterval) clearInterval(watchdogInterval);
+            watchdogInterval = setInterval(() => {
+                if (IS_CAPACITOR) return;
+
+                if (!isWorkingHours()) {
+                    if (!trackingPausedBySchedule) {
+                        trackingPausedBySchedule = true;
+                        stopBrowserTracking();
+                        statusPill.className = 'status-pill status-off';
+                        statusText.innerText = `Fora do horário (${scheduleConfig.start_hour}h-${scheduleConfig.end_h}h)`;
+                        document.getElementById('last-send').innerText = '--:--:--';
+                    }
+                    return;
+                }
+
+                if (trackingPausedBySchedule) {
+                    trackingPausedBySchedule = false;
+                    startBrowserTracking();
+                    return;
+                }
+
+                const elapsed = Date.now() - lastPositionTime;
+                if (elapsed > 90000) {
+                    consecutiveFails++;
+                    document.getElementById('fail-count').innerText = consecutiveFails;
+                    statusPill.className = 'status-pill status-paused';
+                    statusText.innerText = 'Reiniciando GPS...';
+                    stopBrowserTracking();
+                    startBrowserTracking();
+                }
+            }, 30000);
         }
 
         window.addEventListener('beforeunload', () => {
@@ -491,6 +540,10 @@
                     window.Capacitor.Plugins.Geolocation.clearWatch({ id: capacitorWatchId });
                 } catch(e) {}
             }
+            if (browserWatchId !== null) {
+                try { navigator.geolocation.clearWatch(browserWatchId); } catch(e) {}
+            }
+            if (watchdogInterval) clearInterval(watchdogInterval);
         });
     </script>
 </body>
