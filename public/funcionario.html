@@ -931,7 +931,7 @@
             if (q.length < 3) { document.getElementById('search-results').classList.remove('show'); return; }
             searchTimeout = setTimeout(async function() {
                 try {
-                    var resp = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&limit=5&countrycodes=br');
+                    var resp = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&limit=5&countrycodes=br&viewbox=-60.25,-2.85,-59.70,-3.25&bounded=1');
                     var results = await resp.json();
                     var container = document.getElementById('search-results');
                     container.innerHTML = '';
