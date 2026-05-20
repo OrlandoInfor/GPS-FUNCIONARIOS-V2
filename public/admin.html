@@ -349,6 +349,7 @@
             <p>Monitoramento em Tempo Real — Manaus</p>
             <div class="header-actions">
                 <button class="btn-theme-toggle" id="theme-toggle" onclick="cycleTheme()">🌙 Tema: Escuro</button>
+                <button class="btn-theme-toggle" onclick="refreshPanel()" title="Atualizar lista">🔄 Atualizar</button>
             </div>
         </div>
 
@@ -547,6 +548,7 @@
             const now = Date.now();
             Object.values(employees).forEach(emp => {
                 if (emp.noCoords) { offline++; return; }
+                if (emp.isOnline === false) { offline++; return; }
                 if (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS) {
                     online++;
                 } else {
@@ -574,7 +576,7 @@
 
             const filtered = entries.filter(([id, emp]) => {
                 const now = Date.now();
-                const isOnline = (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
+                const isOnline = emp.isOnline !== false && (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
                 if (filterMode === 'online') return isOnline;
                 if (filterMode === 'offline') return !isOnline;
                 return true;
@@ -591,7 +593,7 @@
                 .sort((a, b) => new Date(b[1].lastUpdate) - new Date(a[1].lastUpdate))
                 .forEach(([id, emp]) => {
                     const now = Date.now();
-                    const isOnline = emp.noCoords ? false : (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
+                    const isOnline = emp.noCoords ? false : (emp.isOnline !== false && (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS));
 
                     const item = document.createElement('div');
                     item.className = 'employee-item ' + (isOnline ? 'online' : 'offline');
@@ -636,7 +638,7 @@
                     marker, path, lastPos: pos, name: employeeId,
                     lastUpdate: timestamp || new Date().toISOString(),
                     history: [{ lat, lng, time: timestamp }],
-                    isOnline: true,
+                    isOnline: isLive ? true : undefined,
                     noCoords: false
                 };
             } else {
@@ -663,7 +665,7 @@
                 }
                 emp.lastPos = pos;
                 emp.lastUpdate = timestamp || new Date().toISOString();
-                emp.isOnline = true;
+                if (isLive) emp.isOnline = true;
             }
 
             if (isLive) {
@@ -808,6 +810,18 @@
             const m = String(value).match(/(\d{1,2}):(\d{2})/);
             if (m) return m[1].padStart(2, '0') + ':' + m[2];
             return String(value).padStart(2, '0') + ':00';
+        }
+
+        async function refreshPanel() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerText = '⏳ Atualizando...';
+            await fetchEmployeesFromAPI();
+            updateEmployeeUI();
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerText = '🔄 Atualizar';
+            }, 1000);
         }
 
         async function saveSchedule() {
