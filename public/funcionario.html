@@ -317,6 +317,9 @@
         if (savedName) {
             employeeId = savedName;
             nameInput.value = savedName;
+            if (socket && SOCKET_OK) {
+                socket.emit('register', { deviceId: deviceId, employeeId: employeeId });
+            }
             setTimeout(() => {
                 if (!isWorkingHours()) {
                     errorToast.innerText = `Fora do horário permitido (${scheduleConfig.start_hour}h às ${scheduleConfig.end_h}h).\nAguarde o horário de trabalho para iniciar.`;

@@ -532,6 +532,8 @@
                             deviceId: emp.id,
                             timestamp: emp.last_seen || new Date().toISOString()
                         }, false);
+                    } else {
+                        registerEmployeeInUI(emp);
                     }
                 });
                 updateEmployeeUI();
@@ -544,6 +546,7 @@
             let online = 0, offline = 0;
             const now = Date.now();
             Object.values(employees).forEach(emp => {
+                if (emp.noCoords) { offline++; return; }
                 if (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS) {
                     online++;
                 } else {
@@ -588,7 +591,7 @@
                 .sort((a, b) => new Date(b[1].lastUpdate) - new Date(a[1].lastUpdate))
                 .forEach(([id, emp]) => {
                     const now = Date.now();
-                    const isOnline = (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
+                    const isOnline = emp.noCoords ? false : (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
 
                     const item = document.createElement('div');
                     item.className = 'employee-item ' + (isOnline ? 'online' : 'offline');
@@ -603,11 +606,13 @@
                         </div>
                         <div class="emp-meta">
                             <span><span class="emp-status-dot ${isOnline ? 'online' : 'offline'}"></span>${isOnline ? 'Online' : 'Offline'}</span>
-                            <span>${new Date(emp.lastUpdate).toLocaleTimeString()}</span>
+                            <span>${emp.noCoords ? 'Sem localização' : new Date(emp.lastUpdate).toLocaleTimeString()}</span>
                             <span>${emp.history.length} pts</span>
                         </div>
                     `;
-                    item.onclick = () => map.setView(emp.lastPos, 16);
+                    if (emp.lastPos) {
+                        item.onclick = () => map.setView(emp.lastPos, 16);
+                    }
                     employeeListDiv.appendChild(item);
                 });
 
@@ -631,10 +636,18 @@
                     marker, path, lastPos: pos, name: employeeId,
                     lastUpdate: timestamp || new Date().toISOString(),
                     history: [{ lat, lng, time: timestamp }],
-                    isOnline: true
+                    isOnline: true,
+                    noCoords: false
                 };
             } else {
                 const emp = employees[id];
+                if (emp.noCoords) {
+                    emp.noCoords = false;
+                    const marker = L.marker(pos).addTo(map).bindPopup(`<b>${employeeId}</b>`);
+                    const path = L.polyline([pos], { color: '#2563eb', weight: 3, opacity: 0.7 }).addTo(map);
+                    emp.marker = marker;
+                    emp.path = path;
+                }
                 emp.name = employeeId;
                 emp.marker.setLatLng(pos).getPopup().setContent(`<b>${employeeId}</b><br><small>${new Date(timestamp).toLocaleTimeString()}</small>`);
 
@@ -660,6 +673,20 @@
             updateEmployeeUI();
         }
 
+        function registerEmployeeInUI(emp) {
+            const id = emp.id;
+            if (!employees[id]) {
+                employees[id] = {
+                    name: emp.name,
+                    lastPos: null,
+                    lastUpdate: emp.last_seen || new Date().toISOString(),
+                    history: [],
+                    isOnline: false,
+                    noCoords: true
+                };
+            }
+        }
+
         socket.on('location-broadcast', (data) => {
             updateOrAddEmployee(data, true);
         });
@@ -670,6 +697,20 @@
                 employees[deviceId].isOnline = false;
                 updateEmployeeUI();
                 notifyOffline(name);
+            }
+        });
+
+        socket.on('employee-registered', ({ deviceId, name }) => {
+            if (!employees[deviceId]) {
+                employees[deviceId] = {
+                    name: name,
+                    lastPos: null,
+                    lastUpdate: new Date().toISOString(),
+                    history: [],
+                    isOnline: false,
+                    noCoords: true
+                };
+                updateEmployeeUI();
             }
         });
 
@@ -703,8 +744,8 @@
             try {
                 await fetch('/api/employees/' + encodeURIComponent(id), { method: 'DELETE' });
                 if (employees[id]) {
-                    map.removeLayer(employees[id].marker);
-                    map.removeLayer(employees[id].path);
+                    if (employees[id].marker) map.removeLayer(employees[id].marker);
+                    if (employees[id].path) map.removeLayer(employees[id].path);
                     delete employees[id];
                 }
                 updateEmployeeUI();

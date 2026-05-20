@@ -214,6 +214,20 @@ io.on('connection', (socket) => {
   }
   socket.emit('initial-locations', latestLocations);
 
+  socket.on('register', (data) => {
+    const id = data.deviceId || data.employeeId;
+    const name = data.employeeId || id;
+    db.prepare(`
+      INSERT INTO employees (id, name, last_seen, created_at)
+      VALUES (?, ?, datetime('now'), datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        last_seen = excluded.last_seen
+    `).run(id, name);
+    onlineEmployees.set(socket.id, { deviceId: id, lastHeartbeat: Date.now() });
+    io.emit('employee-registered', { deviceId: id, name: name });
+  });
+
   socket.on('update-location', (data) => {
     const id = data.deviceId || data.employeeId;
     const name = data.employeeId || id;
