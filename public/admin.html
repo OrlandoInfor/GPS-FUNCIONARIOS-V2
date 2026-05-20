@@ -387,10 +387,10 @@
     <div class="modal-overlay" id="schedule-modal">
         <div class="modal">
             <h3>⚙ Horário — <span id="schedule-emp-name"></span></h3>
-            <label>Início (hora)</label>
-            <input type="number" id="sched-start" min="0" max="23" value="8">
-            <label>Término (hora)</label>
-            <input type="number" id="sched-end" min="0" max="23" value="17">
+            <label>Início</label>
+            <input type="time" id="sched-start" value="08:00">
+            <label>Término</label>
+            <input type="time" id="sched-end" value="17:00">
             <label>Dias da semana</label>
             <div class="day-toggles" id="day-toggles">
                 <button class="day-btn" data-day="1" onclick="toggleDay(this)">Seg</button>
@@ -779,8 +779,8 @@
             try {
                 const res = await fetch('/api/schedule/' + encodeURIComponent(deviceId));
                 const sched = await res.json();
-                document.getElementById('sched-start').value = sched.start_hour || 8;
-                document.getElementById('sched-end').value = sched.end_hour || 17;
+                document.getElementById('sched-start').value = normalizeTimeDisplay(sched.start_hour) || '08:00';
+                document.getElementById('sched-end').value = normalizeTimeDisplay(sched.end_hour) || '17:00';
                 const days = (sched.days || '1,2,3,4,5').split(',').map(Number);
                 document.querySelectorAll('#day-toggles .day-btn').forEach(btn => {
                     btn.classList.toggle('active', days.includes(Number(btn.dataset.day)));
@@ -799,10 +799,21 @@
             btn.classList.toggle('active');
         }
 
+        function normalizeTimeDisplay(value) {
+            if (value == null) return null;
+            if (typeof value === 'number' || /^\d+$/.test(String(value))) {
+                const h = parseInt(value);
+                return String(h).padStart(2, '0') + ':00';
+            }
+            const m = String(value).match(/(\d{1,2}):(\d{2})/);
+            if (m) return m[1].padStart(2, '0') + ':' + m[2];
+            return String(value).padStart(2, '0') + ':00';
+        }
+
         async function saveSchedule() {
             if (!scheduleDeviceId) return;
-            const start_hour = parseInt(document.getElementById('sched-start').value) || 8;
-            const end_hour = parseInt(document.getElementById('sched-end').value) || 17;
+            const start_hour = document.getElementById('sched-start').value || '08:00';
+            const end_hour = document.getElementById('sched-end').value || '17:00';
             const days = [];
             document.querySelectorAll('#day-toggles .day-btn.active').forEach(btn => {
                 days.push(btn.dataset.day);

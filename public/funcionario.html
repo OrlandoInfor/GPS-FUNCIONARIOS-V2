@@ -237,7 +237,7 @@
         let browserWatchId = null;
         let watchdogInterval = null;
         let lastPositionTime = 0;
-        let scheduleConfig = { start_hour: 8, end_hour: 17, days: [1,2,3,4,5] };
+        let scheduleConfig = { start_hour: '08:00', end_hour: '17:00', days: [1,2,3,4,5] };
         let lastSentData = null;
         let trackingPausedBySchedule = false;
 
@@ -248,8 +248,8 @@
         if (socket && SOCKET_OK) {
             socket.on('schedule-config', (config) => {
                 scheduleConfig = {
-                    start_hour: config.start_hour || 8,
-                    end_hour: config.end_hour || 17,
+                    start_hour: config.start_hour || '08:00',
+                    end_hour: config.end_hour || '17:00',
                     days: (config.days || '1,2,3,4,5').split(',').map(Number)
                 };
                 checkScheduleChange();
@@ -258,8 +258,8 @@
             socket.on('schedule-update', (config) => {
                 if (config.deviceId === deviceId) {
                     scheduleConfig = {
-                        start_hour: config.start_hour || 8,
-                        end_hour: config.end_hour || 17,
+                        start_hour: config.start_hour || '08:00',
+                        end_hour: config.end_hour || '17:00',
                         days: (config.days || '1,2,3,4,5').split(',').map(Number)
                     };
                     checkScheduleChange();
@@ -301,7 +301,7 @@
                 trackingPausedBySchedule = true;
                 stopBrowserTracking();
                 statusPill.className = 'status-pill status-off';
-                statusText.innerText = `Fora do horário (${scheduleConfig.start_hour}h-${scheduleConfig.end_h}h)`;
+                statusText.innerText = `Fora do horário (${formatTimeDisplay(scheduleConfig.start_hour)}-${formatTimeDisplay(scheduleConfig.end_hour)})`;
                 document.getElementById('last-send').innerText = '--:--:--';
                 if (socket && SOCKET_OK) {
                     socket.emit('tracking-paused', { deviceId: deviceId, employeeId: employeeId });
@@ -322,7 +322,7 @@
             }
             setTimeout(() => {
                 if (!isWorkingHours()) {
-                    errorToast.innerText = `Fora do horário permitido (${scheduleConfig.start_hour}h às ${scheduleConfig.end_h}h).\nAguarde o horário de trabalho para iniciar.`;
+                    errorToast.innerText = `Fora do horário permitido (${formatTimeDisplay(scheduleConfig.start_hour)} às ${formatTimeDisplay(scheduleConfig.end_hour)}).\nAguarde o horário de trabalho para iniciar.`;
                     errorToast.style.display = 'block';
                     return;
                 }
@@ -348,7 +348,7 @@
                     return;
                 }
                 if (!isWorkingHours()) {
-                    errorToast.innerText = `Fora do horário permitido (${scheduleConfig.start_hour}h às ${scheduleConfig.end_h}h).\nAguarde o horário de trabalho para iniciar.`;
+                    errorToast.innerText = `Fora do horário permitido (${formatTimeDisplay(scheduleConfig.start_hour)} às ${formatTimeDisplay(scheduleConfig.end_hour)}).\nAguarde o horário de trabalho para iniciar.`;
                     errorToast.style.display = 'block';
                     return;
                 }
@@ -451,11 +451,34 @@
             document.getElementById('next-send').innerText = secondsToNext + 's';
         }
 
+        function parseTimeToMinutes(value) {
+            if (value == null) return 0;
+            if (typeof value === 'number') return Math.floor(value) * 60;
+            const s = String(value);
+            if (/^\d+$/.test(s)) return parseInt(s) * 60;
+            const m = s.match(/(\d{1,2}):(\d{2})/);
+            if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
+            return parseInt(s) * 60 || 0;
+        }
+
+        function formatTimeDisplay(value) {
+            if (value == null) return '08:00';
+            if (typeof value === 'number' || /^\d+$/.test(String(value))) {
+                return String(parseInt(value)).padStart(2, '0') + ':00';
+            }
+            const s = String(value);
+            const m = s.match(/(\d{1,2}):(\d{2})/);
+            if (m) return m[1].padStart(2, '0') + ':' + m[2];
+            return s;
+        }
+
         function isWorkingHours() {
             const now = new Date();
             const day = now.getDay();
-            const hour = now.getHours();
-            return scheduleConfig.days.includes(day) && (hour >= scheduleConfig.start_hour && hour < scheduleConfig.end_hour);
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const startMinutes = parseTimeToMinutes(scheduleConfig.start_hour);
+            const endMinutes = parseTimeToMinutes(scheduleConfig.end_hour);
+            return scheduleConfig.days.includes(day) && currentMinutes >= startMinutes && currentMinutes < endMinutes;
         }
 
         function forceSend() {
@@ -480,7 +503,7 @@
             if (!isWorkingHours()) {
                 trackingPausedBySchedule = true;
                 statusPill.className = 'status-pill status-off';
-                statusText.innerText = `Fora do horário (${scheduleConfig.start_hour}h-${scheduleConfig.end_h}h)`;
+                statusText.innerText = `Fora do horário (${formatTimeDisplay(scheduleConfig.start_hour)}-${formatTimeDisplay(scheduleConfig.end_hour)})`;
                 document.getElementById('last-send').innerText = '--:--:--';
                 errorToast.style.display = 'none';
                 return;
@@ -552,7 +575,7 @@
                         trackingPausedBySchedule = true;
                         stopBrowserTracking();
                         statusPill.className = 'status-pill status-off';
-                        statusText.innerText = `Fora do horário (${scheduleConfig.start_hour}h-${scheduleConfig.end_h}h)`;
+                        statusText.innerText = `Fora do horário (${formatTimeDisplay(scheduleConfig.start_hour)}-${formatTimeDisplay(scheduleConfig.end_hour)})`;
                         document.getElementById('last-send').innerText = '--:--:--';
                         if (socket && SOCKET_OK) {
                             socket.emit('tracking-paused', { deviceId: deviceId, employeeId: employeeId });

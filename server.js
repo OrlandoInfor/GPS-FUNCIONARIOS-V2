@@ -37,11 +37,16 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS schedules (
     employee_id TEXT PRIMARY KEY,
-    start_hour INTEGER NOT NULL DEFAULT 8,
-    end_hour INTEGER NOT NULL DEFAULT 17,
+    start_hour TEXT NOT NULL DEFAULT '08:00',
+    end_hour TEXT NOT NULL DEFAULT '17:00',
     days TEXT NOT NULL DEFAULT '1,2,3,4,5',
     FOREIGN KEY (employee_id) REFERENCES employees(id)
   );
+
+  db.exec(`
+    UPDATE schedules SET start_hour = printf('%02d:00', CAST(start_hour AS INTEGER)) WHERE typeof(start_hour) = 'integer';
+    UPDATE schedules SET end_hour = printf('%02d:00', CAST(end_hour AS INTEGER)) WHERE typeof(end_hour) = 'integer';
+  `);
 `);
 
 const stmtUpsertEmployee = db.prepare(`
@@ -172,13 +177,13 @@ app.get('/api/schedule/:id', (req, res) => {
   if (row) {
     res.json(row);
   } else {
-    res.json({ start_hour: 8, end_hour: 17, days: '1,2,3,4,5' });
+    res.json({ start_hour: '08:00', end_hour: '17:00', days: '1,2,3,4,5' });
   }
 });
 
 app.post('/api/schedule/:id', (req, res) => {
   const { start_hour, end_hour, days } = req.body;
-  stmtUpsertSchedule.run(req.params.id, start_hour || 8, end_hour || 17, days || '1,2,3,4,5');
+  stmtUpsertSchedule.run(req.params.id, start_hour || '08:00', end_hour || '17:00', days || '1,2,3,4,5');
   io.emit('schedule-update', { deviceId: req.params.id, start_hour, end_hour, days });
   res.json({ ok: true });
 });
