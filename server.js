@@ -282,4 +282,5 @@ io.on('connection', (socket) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`GPS Funcionários v2 rodando em http://localhost:${PORT}`);
   console.log(`Admin: http://localhost:${PORT}/admin`);
+  console.log(`Deploy: 2026-05-20T00:33Z`);
 });
