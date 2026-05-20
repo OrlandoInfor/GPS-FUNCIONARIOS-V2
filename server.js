@@ -239,6 +239,13 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('tracking-paused', (data) => {
+    const id = data.deviceId || data.employeeId;
+    const entry = [...onlineEmployees.entries()].find(([, v]) => v.deviceId === id);
+    if (entry) onlineEmployees.delete(entry[0]);
+    io.emit('employee-offline', { deviceId: id });
+  });
+
   socket.on('disconnect', () => {
     const info = onlineEmployees.get(socket.id);
     if (info) {

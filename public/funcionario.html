@@ -166,13 +166,13 @@
                 </div>
             </div>
 
-            <div id="error-toast" class="error-toast"></div>
-
             <button onclick="changeName()" class="btn btn-ghost">Alterar Nome</button>
             <button onclick="forceSend()" class="btn btn-ghost">Forçar Envio Agora</button>
 
             <p class="attribution">Mantenha esta aba aberta para o rastreamento funcionar.</p>
         </div>
+
+        <div id="error-toast" class="error-toast"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -252,6 +252,7 @@
                     end_hour: config.end_hour || 17,
                     days: (config.days || '1,2,3,4,5').split(',').map(Number)
                 };
+                checkScheduleChange();
             });
 
             socket.on('schedule-update', (config) => {
@@ -261,6 +262,7 @@
                         end_hour: config.end_hour || 17,
                         days: (config.days || '1,2,3,4,5').split(',').map(Number)
                     };
+                    checkScheduleChange();
                 }
             });
 
@@ -287,11 +289,36 @@
             });
         }
 
+        function checkScheduleChange() {
+            if (!trackingArea.classList.contains('active')) return;
+            if (!isWorkingHours() && !trackingPausedBySchedule) {
+                trackingPausedBySchedule = true;
+                stopBrowserTracking();
+                statusPill.className = 'status-pill status-off';
+                statusText.innerText = `Fora do horário (${scheduleConfig.start_hour}h-${scheduleConfig.end_h}h)`;
+                document.getElementById('last-send').innerText = '--:--:--';
+                if (socket && SOCKET_OK) {
+                    socket.emit('tracking-paused', { deviceId: deviceId, employeeId: employeeId });
+                }
+            }
+            if (isWorkingHours() && trackingPausedBySchedule) {
+                trackingPausedBySchedule = false;
+                startBrowserTracking();
+            }
+        }
+
         const savedName = localStorage.getItem('employeeName');
         if (savedName) {
             employeeId = savedName;
             nameInput.value = savedName;
-            setTimeout(() => { showTracking(); }, 500);
+            setTimeout(() => {
+                if (!isWorkingHours()) {
+                    errorToast.innerText = `Fora do horário permitido (${scheduleConfig.start_hour}h às ${scheduleConfig.end_h}h).\nAguarde o horário de trabalho para iniciar.`;
+                    errorToast.style.display = 'block';
+                    return;
+                }
+                showTracking();
+            }, 500);
         }
 
         function changeName() {
@@ -309,6 +336,11 @@
                 const name = nameInput.value.trim();
                 if (name.length < 3) {
                     alert("Por favor, digite seu nome completo.");
+                    return;
+                }
+                if (!isWorkingHours()) {
+                    errorToast.innerText = `Fora do horário permitido (${scheduleConfig.start_hour}h às ${scheduleConfig.end_h}h).\nAguarde o horário de trabalho para iniciar.`;
+                    errorToast.style.display = 'block';
                     return;
                 }
                 employeeId = name;
@@ -513,6 +545,9 @@
                         statusPill.className = 'status-pill status-off';
                         statusText.innerText = `Fora do horário (${scheduleConfig.start_hour}h-${scheduleConfig.end_h}h)`;
                         document.getElementById('last-send').innerText = '--:--:--';
+                        if (socket && SOCKET_OK) {
+                            socket.emit('tracking-paused', { deviceId: deviceId, employeeId: employeeId });
+                        }
                     }
                     return;
                 }
