@@ -42,11 +42,11 @@ db.exec(`
     days TEXT NOT NULL DEFAULT '1,2,3,4,5',
     FOREIGN KEY (employee_id) REFERENCES employees(id)
   );
+`);
 
-  db.exec(`
-    UPDATE schedules SET start_hour = printf('%02d:00', CAST(start_hour AS INTEGER)) WHERE typeof(start_hour) = 'integer';
-    UPDATE schedules SET end_hour = printf('%02d:00', CAST(end_hour AS INTEGER)) WHERE typeof(end_hour) = 'integer';
-  `);
+db.exec(`
+  UPDATE schedules SET start_hour = printf('%02d:00', CAST(start_hour AS INTEGER)) WHERE typeof(start_hour) = 'integer';
+  UPDATE schedules SET end_hour = printf('%02d:00', CAST(end_hour AS INTEGER)) WHERE typeof(end_hour) = 'integer';
 `);
 
 const stmtUpsertEmployee = db.prepare(`
