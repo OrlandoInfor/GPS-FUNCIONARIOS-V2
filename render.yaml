@@ -5,6 +5,9 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm start
+    buildFilter:
+      paths:
+        - "**/*"
     envVars:
       - key: ADMIN_PASSWORD
         value: GPS@Orlando2026
