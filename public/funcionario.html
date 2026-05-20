@@ -290,7 +290,13 @@
         }
 
         function checkScheduleChange() {
-            if (!trackingArea.classList.contains('active')) return;
+            if (!trackingArea.classList.contains('active')) {
+                if (isWorkingHours() && employeeId) {
+                    errorToast.style.display = 'none';
+                    showTracking();
+                }
+                return;
+            }
             if (!isWorkingHours() && !trackingPausedBySchedule) {
                 trackingPausedBySchedule = true;
                 stopBrowserTracking();
