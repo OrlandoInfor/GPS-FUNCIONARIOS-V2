@@ -208,8 +208,15 @@
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 await requestWakeLock();
-                if (!IS_CAPACITOR && trackingArea.classList.contains('active')) {
-                    if (isWorkingHours() && browserWatchId === null) {
+                if (!trackingArea.classList.contains('active')) return;
+                if (!isWorkingHours()) return;
+                const elapsed = Date.now() - lastPositionTime;
+                if (IS_CAPACITOR) {
+                    if (capacitorWatchId === null || elapsed > 60000) {
+                        restartCapacitorTracking();
+                    }
+                } else {
+                    if (browserWatchId === null) {
                         startBrowserTracking();
                     }
                 }
@@ -305,7 +312,11 @@
             }
             if (!isWorkingHours() && !trackingPausedBySchedule) {
                 trackingPausedBySchedule = true;
-                stopBrowserTracking();
+                if (IS_CAPACITOR) {
+                    stopCapacitorTracking();
+                } else {
+                    stopBrowserTracking();
+                }
                 statusPill.className = 'status-pill status-off';
                 statusText.innerText = `Fora do horário (${formatTimeDisplay(scheduleConfig.start_hour)}-${formatTimeDisplay(scheduleConfig.end_hour)})`;
                 document.getElementById('last-send').innerText = '--:--:--';
@@ -315,7 +326,11 @@
             }
             if (isWorkingHours() && trackingPausedBySchedule) {
                 trackingPausedBySchedule = false;
-                startBrowserTracking();
+                if (IS_CAPACITOR) {
+                    startCapacitorTracking();
+                } else {
+                    startBrowserTracking();
+                }
             }
         }
 
@@ -406,6 +421,8 @@
                     if (!position || !position.coords) return;
 
                     consecutiveFails = 0;
+                    lastPositionTime = Date.now();
+
                     const data = {
                         lat: position.coords.latitude,
                         lng: position.coords.longitude,
@@ -574,12 +591,14 @@
         function startWatchdog() {
             if (watchdogInterval) clearInterval(watchdogInterval);
             watchdogInterval = setInterval(() => {
-                if (IS_CAPACITOR) return;
-
                 if (!isWorkingHours()) {
                     if (!trackingPausedBySchedule) {
                         trackingPausedBySchedule = true;
-                        stopBrowserTracking();
+                        if (IS_CAPACITOR) {
+                            stopCapacitorTracking();
+                        } else {
+                            stopBrowserTracking();
+                        }
                         statusPill.className = 'status-pill status-off';
                         statusText.innerText = `Fora do horário (${formatTimeDisplay(scheduleConfig.start_hour)}-${formatTimeDisplay(scheduleConfig.end_hour)})`;
                         document.getElementById('last-send').innerText = '--:--:--';
@@ -592,7 +611,11 @@
 
                 if (trackingPausedBySchedule) {
                     trackingPausedBySchedule = false;
-                    startBrowserTracking();
+                    if (IS_CAPACITOR) {
+                        startCapacitorTracking();
+                    } else {
+                        startBrowserTracking();
+                    }
                     return;
                 }
 
@@ -602,18 +625,33 @@
                     document.getElementById('fail-count').innerText = consecutiveFails;
                     statusPill.className = 'status-pill status-paused';
                     statusText.innerText = 'Reiniciando GPS...';
-                    stopBrowserTracking();
-                    startBrowserTracking();
+                    if (IS_CAPACITOR) {
+                        restartCapacitorTracking();
+                    } else {
+                        stopBrowserTracking();
+                        startBrowserTracking();
+                    }
                 }
             }, 30000);
         }
 
-        window.addEventListener('beforeunload', () => {
-            if (capacitorWatchId && IS_CAPACITOR) {
+        async function stopCapacitorTracking() {
+            if (capacitorWatchId) {
                 try {
-                    window.Capacitor.Plugins.Geolocation.clearWatch({ id: capacitorWatchId });
+                    const Geolocation = window.Capacitor.Plugins.Geolocation;
+                    await Geolocation.clearWatch({ id: capacitorWatchId });
                 } catch(e) {}
+                capacitorWatchId = null;
             }
+        }
+
+        async function restartCapacitorTracking() {
+            await stopCapacitorTracking();
+            await startCapacitorTracking();
+        }
+
+        window.addEventListener('beforeunload', () => {
+            stopCapacitorTracking();
             if (browserWatchId !== null) {
                 try { navigator.geolocation.clearWatch(browserWatchId); } catch(e) {}
             }
