@@ -229,7 +229,6 @@ io.on('connection', (socket) => {
         name = excluded.name,
         last_seen = excluded.last_seen
     `).run(id, name);
-    onlineEmployees.set(socket.id, { deviceId: id, lastHeartbeat: Date.now() });
     io.emit('employee-registered', { deviceId: id, name: name });
   });
 

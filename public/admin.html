@@ -543,17 +543,17 @@
 
         setInterval(fetchEmployeesFromAPI, 5000);
 
+        function isEmpOnline(emp) {
+            if (emp.noCoords) return false;
+            if (emp.isOnline === false) return false;
+            const now = Date.now();
+            return now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS;
+        }
+
         function updateStats() {
             let online = 0, offline = 0;
-            const now = Date.now();
             Object.values(employees).forEach(emp => {
-                if (emp.noCoords) { offline++; return; }
-                if (emp.isOnline === false) { offline++; return; }
-                if (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS) {
-                    online++;
-                } else {
-                    offline++;
-                }
+                if (isEmpOnline(emp)) online++; else offline++;
             });
             onlineCountSpan.innerText = online;
             offlineCountSpan.innerText = offline;
@@ -575,10 +575,9 @@
             const entries = Object.entries(employees);
 
             const filtered = entries.filter(([id, emp]) => {
-                const now = Date.now();
-                const isOnline = emp.isOnline !== false && (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS);
-                if (filterMode === 'online') return isOnline;
-                if (filterMode === 'offline') return !isOnline;
+                const online = isEmpOnline(emp);
+                if (filterMode === 'online') return online;
+                if (filterMode === 'offline') return !online;
                 return true;
             });
 
@@ -592,11 +591,10 @@
             filtered
                 .sort((a, b) => new Date(b[1].lastUpdate) - new Date(a[1].lastUpdate))
                 .forEach(([id, emp]) => {
-                    const now = Date.now();
-                    const isOnline = emp.noCoords ? false : (emp.isOnline !== false && (now - new Date(emp.lastUpdate).getTime() < OFFLINE_THRESHOLD_MS));
+                    const online = isEmpOnline(emp);
 
                     const item = document.createElement('div');
-                    item.className = 'employee-item ' + (isOnline ? 'online' : 'offline');
+                    item.className = 'employee-item ' + (online ? 'online' : 'offline');
                     item.innerHTML = `
                         <div class="employee-item-header">
                             <span class="emp-name">${emp.name || id}</span>
@@ -607,7 +605,7 @@
                         </div>
                         </div>
                         <div class="emp-meta">
-                            <span><span class="emp-status-dot ${isOnline ? 'online' : 'offline'}"></span>${isOnline ? 'Online' : 'Offline'}</span>
+                            <span><span class="emp-status-dot ${online ? 'online' : 'offline'}"></span>${online ? 'Online' : 'Offline'}</span>
                             <span>${emp.noCoords ? 'Sem localização' : new Date(emp.lastUpdate).toLocaleTimeString()}</span>
                             <span>${emp.history.length} pts</span>
                         </div>
