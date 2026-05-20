@@ -262,6 +262,12 @@
                         end_hour: config.end_hour || '17:00',
                         days: (config.days || '1,2,3,4,5').split(',').map(Number)
                     };
+                    const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                    const dayList = scheduleConfig.days.map(d => dayNames[d]).join(', ');
+                    const msg = `Horário atualizado: ${dayList}, ${formatTimeDisplay(scheduleConfig.start_hour)} às ${formatTimeDisplay(scheduleConfig.end_hour)}`;
+                    errorToast.innerText = msg;
+                    errorToast.style.display = 'block';
+                    setTimeout(() => { errorToast.style.display = 'none'; }, 5000);
                     checkScheduleChange();
                 }
             });
