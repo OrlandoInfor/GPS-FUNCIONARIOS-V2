@@ -330,6 +330,20 @@
             width: 18px;
             text-align: center;
         }
+
+        .marker-label {
+            background: rgba(0,0,0,0.75);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            white-space: nowrap;
+        }
+        [data-theme="light"] .marker-label {
+            background: rgba(0,0,0,0.7);
+        }
     </style>
 </head>
 <body>
@@ -630,7 +644,8 @@
             const id = deviceId || employeeId;
 
             if (!employees[id]) {
-                const marker = L.marker(pos).addTo(map).bindPopup(`<b>${employeeId}</b>`);
+                const marker = L.marker(pos, { opacity: 1 }).addTo(map)
+                    .bindTooltip(employeeId, { permanent: true, direction: 'top', offset: [0, -30], className: 'marker-label' });
                 const path = L.polyline([pos], { color: '#2563eb', weight: 3, opacity: 0.7 }).addTo(map);
                 employees[id] = {
                     marker, path, lastPos: pos, name: employeeId,
@@ -643,13 +658,18 @@
                 const emp = employees[id];
                 if (emp.noCoords) {
                     emp.noCoords = false;
-                    const marker = L.marker(pos).addTo(map).bindPopup(`<b>${employeeId}</b>`);
+                    const marker = L.marker(pos, { opacity: 1 }).addTo(map)
+                        .bindTooltip(employeeId, { permanent: true, direction: 'top', offset: [0, -30], className: 'marker-label' });
                     const path = L.polyline([pos], { color: '#2563eb', weight: 3, opacity: 0.7 }).addTo(map);
                     emp.marker = marker;
                     emp.path = path;
                 }
+                if (!map.hasLayer(emp.marker)) {
+                    emp.marker.addTo(map);
+                    emp.path.addTo(map);
+                }
                 emp.name = employeeId;
-                emp.marker.setLatLng(pos).getPopup().setContent(`<b>${employeeId}</b><br><small>${new Date(timestamp).toLocaleTimeString()}</small>`);
+                emp.marker.setLatLng(pos).setTooltipContent(employeeId);
 
                 const last = emp.history[emp.history.length - 1];
                 if (!last || last.lat !== lat || last.lng !== lng) {
@@ -693,8 +713,11 @@
 
         socket.on('employee-offline', ({ deviceId }) => {
             if (employees[deviceId]) {
-                const name = employees[deviceId].name || deviceId;
-                employees[deviceId].isOnline = false;
+                const emp = employees[deviceId];
+                const name = emp.name || deviceId;
+                emp.isOnline = false;
+                if (emp.marker && map.hasLayer(emp.marker)) map.removeLayer(emp.marker);
+                if (emp.path && map.hasLayer(emp.path)) map.removeLayer(emp.path);
                 updateEmployeeUI();
                 notifyOffline(name);
             }
