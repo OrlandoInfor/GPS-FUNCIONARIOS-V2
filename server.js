@@ -229,6 +229,16 @@ io.on('connection', (socket) => {
         name = excluded.name,
         last_seen = excluded.last_seen
     `).run(id, name);
+
+    const schedule = stmtGetSchedule.get(id);
+    if (schedule) {
+      socket.emit('schedule-config', {
+        start_hour: schedule.start_hour,
+        end_hour: schedule.end_hour,
+        days: schedule.days
+      });
+    }
+
     io.emit('employee-registered', { deviceId: id, name: name });
   });
 

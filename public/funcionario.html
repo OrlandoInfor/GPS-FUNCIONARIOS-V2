@@ -359,6 +359,8 @@
         let destLng = null;
         let isNavigating = false;
         let navUpdateInterval = null;
+        let pendingAutoStart = false;
+        let scheduleReceived = false;
 
         const IS_CAPACITOR = typeof window.Capacitor !== 'undefined'
             && window.Capacitor.Plugins
@@ -371,6 +373,17 @@
                     end_hour: config.end_hour || '17:00',
                     days: (config.days || '1,2,3,4,5').split(',').map(Number)
                 };
+                scheduleReceived = true;
+                if (pendingAutoStart && employeeId) {
+                    pendingAutoStart = false;
+                    if (isWorkingHours()) {
+                        errorToast.style.display = 'none';
+                        showTracking();
+                    } else {
+                        errorToast.innerText = 'Fora do horário permitido (' + formatTimeDisplay(scheduleConfig.start_hour) + ' às ' + formatTimeDisplay(scheduleConfig.end_hour) + ').\nAguarde o horário de trabalho para iniciar.';
+                        errorToast.style.display = 'block';
+                    }
+                }
                 checkScheduleChange();
             });
 
@@ -402,6 +415,9 @@
                     if (!IS_CAPACITOR && browserWatchId === null && isWorkingHours()) {
                         startBrowserTracking();
                     }
+                } else if (employeeId && !pendingAutoStart && !scheduleReceived) {
+                    pendingAutoStart = true;
+                    socket.emit('register', { deviceId: deviceId, employeeId: employeeId });
                 }
             });
 
@@ -451,16 +467,31 @@
             employeeId = savedName;
             nameInput.value = savedName;
             if (socket && SOCKET_OK) {
+                pendingAutoStart = true;
                 socket.emit('register', { deviceId: deviceId, employeeId: employeeId });
+                setTimeout(() => {
+                    if (pendingAutoStart) {
+                        pendingAutoStart = false;
+                        scheduleReceived = true;
+                        if (isWorkingHours()) {
+                            showTracking();
+                        } else {
+                            errorToast.innerText = 'Fora do horário permitido (' + formatTimeDisplay(scheduleConfig.start_hour) + ' às ' + formatTimeDisplay(scheduleConfig.end_hour) + ').\nAguarde o horário de trabalho para iniciar.';
+                            errorToast.style.display = 'block';
+                        }
+                    }
+                }, 3000);
             }
-            setTimeout(() => {
-                if (!isWorkingHours()) {
-                    errorToast.innerText = `Fora do horário permitido (${formatTimeDisplay(scheduleConfig.start_hour)} às ${formatTimeDisplay(scheduleConfig.end_hour)}).\nAguarde o horário de trabalho para iniciar.`;
-                    errorToast.style.display = 'block';
-                    return;
-                }
-                showTracking();
-            }, 500);
+            if (!socket || !SOCKET_OK) {
+                setTimeout(() => {
+                    if (!isWorkingHours()) {
+                        errorToast.innerText = 'Fora do horário permitido (' + formatTimeDisplay(scheduleConfig.start_hour) + ' às ' + formatTimeDisplay(scheduleConfig.end_hour) + ').\nAguarde o horário de trabalho para iniciar.';
+                        errorToast.style.display = 'block';
+                        return;
+                    }
+                    showTracking();
+                }, 500);
+            }
         }
 
         function changeName() {
