@@ -144,10 +144,18 @@
         }
         #search-results.show { display: block; }
         .search-item {
-            padding: 10px 14px; font-size: 0.85rem; cursor: pointer;
+            padding: 10px 14px; cursor: pointer;
             border-bottom: 1px solid #f1f5f9;
         }
         .search-item:hover, .search-item:active { background: #eff6ff; }
+        .search-item-main {
+            font-size: 0.9rem; font-weight: 600; color: #0f172a;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .search-item-sub {
+            font-size: 0.78rem; color: #64748b; margin-top: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
 
         #map-container { flex: 1; width: 100%; min-height: 0; }
 
@@ -881,6 +889,16 @@
             return mins + ' min';
         }
 
+        function haversineKm(lat1, lng1, lat2, lng2) {
+            var R = 6371;
+            var dLat = (lat2 - lat1) * Math.PI / 180;
+            var dLng = (lng2 - lng1) * Math.PI / 180;
+            var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
         function startNavigation() {
             if (!destLat || !destLng || !currentLat || !currentLng) return;
             isNavigating = true;
@@ -941,13 +959,26 @@
                         results.forEach(function(r) {
                             var div = document.createElement('div');
                             div.className = 'search-item';
-                            div.textContent = r.display_name;
+                            var addr = r.address || {};
+                            var main = r.name || addr.road || addr.amenity || addr.building || addr.shop || addr.place || '';
+                            var subParts = [];
+                            if (addr.suburb || addr.neighbourhood) subParts.push(addr.suburb || addr.neighbourhood);
+                            if (addr.city || addr.town || addr.village) subParts.push(addr.city || addr.town || addr.village);
+                            if (addr.state) subParts.push(addr.state);
+                            var sub = subParts.join(', ');
+                            var distStr = '';
+                            if (currentLat && currentLng && r.lat && r.lon) {
+                                var d = haversineKm(currentLat, currentLng, parseFloat(r.lat), parseFloat(r.lon));
+                                distStr = ' · ' + (d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + ' km');
+                            }
+                            div.innerHTML = '<div class="search-item-main">' + (main || r.display_name.split(',')[0]) + '</div>' +
+                                (sub ? '<div class="search-item-sub">' + sub + distStr + '</div>' : '');
                             div.onclick = function() {
                                 var lat = parseFloat(r.lat);
                                 var lng = parseFloat(r.lon);
                                 setDestination(lat, lng);
                                 container.classList.remove('show');
-                                document.getElementById('map-search').value = r.display_name;
+                                document.getElementById('map-search').value = (main || r.display_name.split(',')[0]);
                                 mapInstance.setView([lat, lng], 15);
                             };
                             container.appendChild(div);
