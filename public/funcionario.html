@@ -942,11 +942,89 @@
         document.getElementById('btn-start-nav').onclick = startNavigation;
         document.getElementById('btn-stop-nav').onclick = stopNavigation;
 
+        function saveSearchToHistory(name, lat, lng) {
+            var history = JSON.parse(localStorage.getItem('mapSearchHistory') || '[]');
+            history = history.filter(function(h) { return h.name !== name; });
+            history.unshift({ name: name, lat: lat, lng: lng, time: Date.now() });
+            if (history.length > 10) history = history.slice(0, 10);
+            localStorage.setItem('mapSearchHistory', JSON.stringify(history));
+        }
+
+        function showSearchHistory(container) {
+            var history = JSON.parse(localStorage.getItem('mapSearchHistory') || '[]');
+            if (history.length === 0) return;
+            var label = document.createElement('div');
+            label.className = 'search-item';
+            label.style.cssText = 'color:#94a3b8;font-size:0.75rem;font-weight:600;cursor:default;';
+            label.textContent = 'Recentes';
+            container.appendChild(label);
+            history.forEach(function(h) {
+                var div = document.createElement('div');
+                div.className = 'search-item';
+                var distStr = '';
+                if (currentLat && currentLng) {
+                    var d = haversineKm(currentLat, currentLng, h.lat, h.lng);
+                    distStr = ' · ' + (d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + ' km');
+                }
+                div.innerHTML = '<div class="search-item-main">🕐 ' + h.name + '</div>' +
+                    '<div class="search-item-sub">Histórico' + distStr + '</div>';
+                div.onclick = function() {
+                    setDestination(h.lat, h.lng);
+                    container.classList.remove('show');
+                    document.getElementById('map-search').value = h.name;
+                    mapInstance.setView([h.lat, h.lng], 15);
+                };
+                container.appendChild(div);
+            });
+        }
+
+        function formatAddressSubtitle(addr) {
+            var parts = [];
+            var sub = addr.suburb || addr.neighbourhood || addr.district || addr.village || addr.hamlet || '';
+            var city = addr.city || addr.town || addr.municipality || '';
+            var state = addr.state || '';
+            if (sub) parts.push(sub);
+            if (city && city !== sub) parts.push(city);
+            if (state) parts.push(state);
+            return parts.join(', ');
+        }
+
         var searchTimeout = null;
+        var lastSearchQuery = '';
         document.getElementById('map-search').addEventListener('input', function() {
             clearTimeout(searchTimeout);
             var q = this.value.trim();
-            if (q.length < 3) { document.getElementById('search-results').classList.remove('show'); return; }
+            lastSearchQuery = q;
+            var container = document.getElementById('search-results');
+            if (q.length < 1) {
+                container.innerHTML = '';
+                showSearchHistory(container);
+                container.classList.add('show');
+                return;
+            }
+            if (q.length < 3) {
+                container.innerHTML = '';
+                var history = JSON.parse(localStorage.getItem('mapSearchHistory') || '[]');
+                var filtered = history.filter(function(h) { return h.name.toLowerCase().indexOf(q.toLowerCase()) !== -1; });
+                if (filtered.length > 0) {
+                    filtered.forEach(function(h) {
+                        var div = document.createElement('div');
+                        div.className = 'search-item';
+                        div.innerHTML = '<div class="search-item-main">🕐 ' + h.name + '</div>';
+                        div.onclick = function() {
+                            setDestination(h.lat, h.lng);
+                            container.classList.remove('show');
+                            document.getElementById('map-search').value = h.name;
+                            mapInstance.setView([h.lat, h.lng], 15);
+                        };
+                        container.appendChild(div);
+                    });
+                    container.classList.add('show');
+                } else {
+                    container.classList.remove('show');
+                }
+                return;
+            }
             searchTimeout = setTimeout(async function() {
                 try {
                     var resp = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&limit=5&countrycodes=br&viewbox=-60.25,-2.85,-59.70,-3.25&bounded=1');
@@ -960,26 +1038,25 @@
                             var div = document.createElement('div');
                             div.className = 'search-item';
                             var addr = r.address || {};
-                            var main = r.name || addr.road || addr.amenity || addr.building || addr.shop || addr.place || '';
-                            var subParts = [];
-                            if (addr.suburb || addr.neighbourhood) subParts.push(addr.suburb || addr.neighbourhood);
-                            if (addr.city || addr.town || addr.village) subParts.push(addr.city || addr.town || addr.village);
-                            if (addr.state) subParts.push(addr.state);
-                            var sub = subParts.join(', ');
+                            var main = r.name || addr.road || addr.amenity || addr.building || addr.shop || addr.place || r.display_name.split(',')[0].trim();
+                            var sub = formatAddressSubtitle(addr);
                             var distStr = '';
                             if (currentLat && currentLng && r.lat && r.lon) {
                                 var d = haversineKm(currentLat, currentLng, parseFloat(r.lat), parseFloat(r.lon));
                                 distStr = ' · ' + (d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + ' km');
                             }
-                            div.innerHTML = '<div class="search-item-main">' + (main || r.display_name.split(',')[0]) + '</div>' +
-                                (sub ? '<div class="search-item-sub">' + sub + distStr + '</div>' : '');
+                            div.innerHTML = '<div class="search-item-main">' + main + '</div>' +
+                                '<div class="search-item-sub">' + (sub || 'Manaus, AM') + distStr + '</div>';
+                            var resultLat = parseFloat(r.lat);
+                            var resultLng = parseFloat(r.lon);
+                            var resultName = main;
+                            var resultAddr = sub || 'Manaus, AM';
                             div.onclick = function() {
-                                var lat = parseFloat(r.lat);
-                                var lng = parseFloat(r.lon);
-                                setDestination(lat, lng);
+                                saveSearchToHistory(resultName + ', ' + resultAddr, resultLat, resultLng);
+                                setDestination(resultLat, resultLng);
                                 container.classList.remove('show');
-                                document.getElementById('map-search').value = (main || r.display_name.split(',')[0]);
-                                mapInstance.setView([lat, lng], 15);
+                                document.getElementById('map-search').value = resultName + ', ' + resultAddr;
+                                mapInstance.setView([resultLat, resultLng], 15);
                             };
                             container.appendChild(div);
                         });
@@ -987,6 +1064,15 @@
                     container.classList.add('show');
                 } catch(e) {}
             }, 500);
+        });
+
+        document.getElementById('map-search').addEventListener('focus', function() {
+            if (this.value.trim().length === 0) {
+                var container = document.getElementById('search-results');
+                container.innerHTML = '';
+                showSearchHistory(container);
+                container.classList.add('show');
+            }
         });
 
         document.getElementById('map-search').addEventListener('blur', function() {
